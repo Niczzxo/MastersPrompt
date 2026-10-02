@@ -20,8 +20,8 @@ export default async function handler(req, res) {
   if (!getAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const { id, prompt, imageBase64, imageType, removeImage } = req.body || {};
-    if (!id || !prompt || !prompt.title || !prompt.prompt) {
-      return res.status(400).json({ error: 'Missing fields' });
+    if (!id || !prompt || !String(prompt.title || '').trim()) {
+      return res.status(400).json({ error: 'Title is required' });
     }
     const db = getDb();
 
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       .from('masterprompts_prompts')
       .update({
         title: String(prompt.title).slice(0, 200),
-        prompt: String(prompt.prompt),
+        prompt: String(prompt.prompt || ''),
         category: String(prompt.category || 'Cinematic'),
         model: String(prompt.model || 'Seedance 2.5'),
         duration: String(prompt.duration || '10s'),

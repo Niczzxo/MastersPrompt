@@ -18,8 +18,8 @@ export default async function handler(req, res) {
   if (!checkToken(token)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  if (!prompt || !prompt.title || !prompt.prompt) {
-    return res.status(400).json({ error: 'Title and prompt are required' });
+  if (!prompt || !String(prompt.title || '').trim()) {
+    return res.status(400).json({ error: 'Title is required' });
   }
 
   const url = process.env.VITE_SUPABASE_URL;
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       .insert({
         id,
         title: String(prompt.title).slice(0, 200),
-        prompt: String(prompt.prompt),
+        prompt: String(prompt.prompt || ''),
         category: String(prompt.category || 'Cinematic'),
         model: String(prompt.model || 'Seedance 2.5'),
         duration: String(prompt.duration || '10s'),

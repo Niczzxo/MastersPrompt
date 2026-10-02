@@ -692,12 +692,12 @@ function BrowseView({ items, query, setQuery, category, setCategory, model, setM
 /* ── Detail page ── */
 
 function PhasesSection({ phases }: { phases: { title: string; text: string }[] }) {
-  const [active, setActive] = useState(0);
-  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState<number | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   if (!phases || phases.length === 0) return null;
 
-  const copyPhase = async (text: string) => {
+  const copyPhase = async (text: string, i: number) => {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -708,32 +708,38 @@ function PhasesSection({ phases }: { phases: { title: string; text: string }[] }
       document.execCommand('copy');
       document.body.removeChild(ta);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    setCopiedIdx(i);
+    setTimeout(() => setCopiedIdx(null), 1600);
   };
-
-  const phase = phases[Math.min(active, phases.length - 1)];
 
   return (
     <section>
       <p className={`${labelCls} mb-3 flex items-center gap-1.5`}>
         <Layers size={11} className="text-amber-400" /> Workflow phases
       </p>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {phases.map((ph, i) => (
-          <button key={i} onClick={() => { setActive(i); setCopied(false); }}
-            className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${i === active ? 'bg-gradient-to-r from-amber-200 to-amber-500 text-black border-transparent shadow-[0_0_20px_rgba(212,175,55,0.3)]' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'}`}>
-            {ph.title || `Phase ${i + 1}`}
-          </button>
-        ))}
-      </div>
-      <div className="bg-black/40 border border-amber-400/15 rounded-3xl p-6 md:p-8">
-        <p className="font-display text-lg font-black text-white mb-3">{phase.title || `Phase ${active + 1}`}</p>
-        <p className="text-[15px] text-zinc-200 leading-relaxed whitespace-pre-wrap">{phase.text}</p>
-        <button onClick={() => copyPhase(phase.text)}
-          className={`mt-5 flex items-center gap-2 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-black' : goldBtn}`}>
-          {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy phase</>}
-        </button>
+      <div className="space-y-2.5">
+        {phases.map((ph, i) => {
+          const isOpen = open === i;
+          return (
+            <div key={i} className={`bg-black/40 border rounded-2xl overflow-hidden transition-colors ${isOpen ? 'border-amber-400/30' : 'border-white/10'}`}>
+              <button onClick={() => setOpen(isOpen ? null : i)}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors">
+                <span className="w-7 h-7 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black font-black text-xs">{i + 1}</span>
+                <span className="flex-1 font-bold text-white text-sm truncate">{ph.title || `Phase ${i + 1}`}</span>
+                <ChevronDown size={16} className={`text-amber-400 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isOpen && (
+                <div className="px-5 pb-5 pt-1 border-t border-white/5">
+                  <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap mt-3">{ph.text}</p>
+                  <button onClick={() => copyPhase(ph.text, i)}
+                    className={`mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${copiedIdx === i ? 'bg-emerald-500 text-black' : goldBtn}`}>
+                    {copiedIdx === i ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy phase</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -795,12 +801,14 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, isAdmin, 
           </div>
 
           {/* Prompt */}
-          <section>
-            <p className={`${labelCls} flex items-center gap-1.5 mb-2`}><Sparkles size={11} className="text-amber-400" /> The prompt</p>
-            <div className="bg-black/40 border border-amber-400/15 rounded-3xl p-6 md:p-8 text-[15px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
-              {item.prompt}
-            </div>
-          </section>
+          {item.prompt && item.prompt.trim() && (
+            <section>
+              <p className={`${labelCls} flex items-center gap-1.5 mb-2`}><Sparkles size={11} className="text-amber-400" /> The prompt</p>
+              <div className="bg-black/40 border border-amber-400/15 rounded-3xl p-6 md:p-8 text-[15px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                {item.prompt}
+              </div>
+            </section>
+          )}
 
           <PhasesSection phases={item.phases || []} />
 
@@ -1129,8 +1137,9 @@ function UploadView({ onBack, onSaved, onLogout, editing, onUpdated }: {
   };
 
   const save = async () => {
-    if (!title.trim() || !prompt.trim()) {
-      setError('Title and prompt text are required.');
+    const hasPhaseText = phases.some((ph) => ph.text.trim());
+    if (!title.trim() || (!prompt.trim() && !hasPhaseText)) {
+      setError('Title and either a prompt or at least one phase are required.');
       return;
     }
     const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
@@ -1209,9 +1218,9 @@ function UploadView({ onBack, onSaved, onLogout, editing, onUpdated }: {
         </div>
 
         <div className="space-y-1.5">
-          <label className={labelCls}>Prompt</label>
+          <label className={labelCls}>Prompt {phases.some((ph) => ph.text.trim()) ? '(optional — using phases)' : ''}</label>
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6}
-            placeholder={ptype === 'video' ? 'Describe the video — subject, motion, camera, lighting, style…' : 'Describe the image — subject, composition, lighting, style…'}
+            placeholder={ptype === 'video' ? 'Describe the video — subject, motion, camera, lighting, style… (skip if using phases below)' : 'Describe the image — subject, composition, lighting, style… (skip if using phases below)'}
             className={`${inputCls} resize-none`} />
         </div>
 
