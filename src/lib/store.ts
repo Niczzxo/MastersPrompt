@@ -1,8 +1,8 @@
 import type { PromptItem } from '../data/prompts';
 import { seedPrompts } from '../data/prompts';
 
-const USER_KEY = 'promptreel-user-prompts';
-const COPIES_KEY = 'promptreel-copies';
+const USER_KEY = 'masterprompts-user-prompts';
+const COPIES_KEY = 'masterprompts-copies';
 
 export function loadUserPrompts(): PromptItem[] {
   try {

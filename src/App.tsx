@@ -154,7 +154,7 @@ export default function App() {
               <Clapperboard className="text-white" size={20} />
             </div>
             <div className="text-left">
-              <h1 className="font-black text-lg tracking-tight text-white leading-none">PromptReel</h1>
+              <h1 className="font-black text-lg tracking-tight text-white leading-none">MasterPrompts</h1>
               <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Video prompts library</p>
             </div>
           </button>
@@ -327,7 +327,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-10 text-center">
-        <p className="font-black text-white">PromptReel</p>
+        <p className="font-black text-white">MasterPrompts</p>
         <p className="text-xs text-zinc-600 mt-2">Your personal AI video prompts vault · All seed prompts are original</p>
       </footer>
     </div>
@@ -360,7 +360,7 @@ function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   };
 
   const disconnect = () => {
-    localStorage.removeItem('promptreel-db-config');
+    localStorage.removeItem('masterprompts-db-config');
     onSaved();
   };
 
@@ -416,7 +416,7 @@ function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
         <p className="text-[11px] text-zinc-600 leading-relaxed">
           First time? Run the SQL snippet from the README in your Supabase SQL Editor once to create
-          the <span className="font-mono">promptreel_prompts</span> table and thumbnails bucket.
+          the <span className="font-mono">masterprompts_prompts</span> table and thumbnails bucket.
         </p>
       </div>
     </div>

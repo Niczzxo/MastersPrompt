@@ -1,4 +1,4 @@
-# PromptReel — AI Video Prompts Vault
+# MasterPrompts — AI Video Prompts Vault
 
 A personal library for AI video prompts: browse the collection, copy any prompt
 with one tap, and upload your own prompts to build your vault.
@@ -26,7 +26,7 @@ Without it, uploads stay in the browser (localStorage).
 **One-time setup** — run this in your Supabase SQL Editor:
 
 ```sql
-create table if not exists promptreel_prompts (
+create table if not exists masterprompts_prompts (
   id text primary key,
   title text not null,
   prompt text not null,
@@ -40,31 +40,31 @@ create table if not exists promptreel_prompts (
   created_at timestamptz default now()
 );
 
-alter table promptreel_prompts enable row level security;
+alter table masterprompts_prompts enable row level security;
 
-drop policy if exists "promptreel public read" on promptreel_prompts;
-create policy "promptreel public read" on promptreel_prompts
+drop policy if exists "masterprompts public read" on masterprompts_prompts;
+create policy "masterprompts public read" on masterprompts_prompts
   for select using (true);
 
-drop policy if exists "promptreel public write" on promptreel_prompts;
-create policy "promptreel public write" on promptreel_prompts
+drop policy if exists "masterprompts public write" on masterprompts_prompts;
+create policy "masterprompts public write" on masterprompts_prompts
   for all using (true) with check (true);
 
 insert into storage.buckets (id, name, public)
-values ('promptreel-thumbs', 'promptreel-thumbs', true)
+values ('masterprompts-thumbs', 'masterprompts-thumbs', true)
 on conflict (id) do nothing;
 
-drop policy if exists "promptreel thumbs public read" on storage.objects;
-create policy "promptreel thumbs public read" on storage.objects
-  for select using (bucket_id = 'promptreel-thumbs');
+drop policy if exists "masterprompts thumbs public read" on storage.objects;
+create policy "masterprompts thumbs public read" on storage.objects
+  for select using (bucket_id = 'masterprompts-thumbs');
 
-drop policy if exists "promptreel thumbs public write" on storage.objects;
-create policy "promptreel thumbs public write" on storage.objects
-  for insert with check (bucket_id = 'promptreel-thumbs');
+drop policy if exists "masterprompts thumbs public write" on storage.objects;
+create policy "masterprompts thumbs public write" on storage.objects
+  for insert with check (bucket_id = 'masterprompts-thumbs');
 
-drop policy if exists "promptreel thumbs public delete" on storage.objects;
-create policy "promptreel thumbs public delete" on storage.objects
-  for delete using (bucket_id = 'promptreel-thumbs');
+drop policy if exists "masterprompts thumbs public delete" on storage.objects;
+create policy "masterprompts thumbs public delete" on storage.objects
+  for delete using (bucket_id = 'masterprompts-thumbs');
 ```
 
 Then open the site → gear icon (Settings) → paste your **Supabase URL** and **anon public key**

@@ -6,7 +6,7 @@ export interface DbConfig {
   anonKey: string;
 }
 
-const LS_KEY = 'promptreel-db-config';
+const LS_KEY = 'masterprompts-db-config';
 
 declare global {
   interface ImportMeta {
@@ -74,7 +74,7 @@ export async function fetchDbPrompts(): Promise<PromptItem[]> {
   const db = getDb();
   if (!db) return [];
   const { data, error } = await db
-    .from('promptreel_prompts')
+    .from('masterprompts_prompts')
     .select('*')
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -95,7 +95,7 @@ export async function insertDbPrompt(p: {
   if (!db) throw new Error('Database not connected');
   const id = `db-${Date.now()}`;
   const { data, error } = await db
-    .from('promptreel_prompts')
+    .from('masterprompts_prompts')
     .insert({
       id,
       title: p.title,
@@ -117,16 +117,16 @@ export async function insertDbPrompt(p: {
 export async function deleteDbPrompt(id: string) {
   const db = getDb();
   if (!db) throw new Error('Database not connected');
-  const { error } = await db.from('promptreel_prompts').delete().eq('id', id);
+  const { error } = await db.from('masterprompts_prompts').delete().eq('id', id);
   if (error) throw error;
 }
 
 export async function incrementDbCopies(id: string): Promise<number> {
   const db = getDb();
   if (!db) throw new Error('Database not connected');
-  const { data } = await db.from('promptreel_prompts').select('copies').eq('id', id).single();
+  const { data } = await db.from('masterprompts_prompts').select('copies').eq('id', id).single();
   const next = ((data as any)?.copies || 0) + 1;
-  await db.from('promptreel_prompts').update({ copies: next }).eq('id', id);
+  await db.from('masterprompts_prompts').update({ copies: next }).eq('id', id);
   return next;
 }
 
@@ -135,9 +135,9 @@ export async function uploadThumb(file: File): Promise<string> {
   if (!db) throw new Error('Database not connected');
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await db.storage.from('promptreel-thumbs').upload(path, file, { upsert: false });
+  const { error } = await db.storage.from('masterprompts-thumbs').upload(path, file, { upsert: false });
   if (error) throw error;
-  const { data } = db.storage.from('promptreel-thumbs').getPublicUrl(path);
+  const { data } = db.storage.from('masterprompts-thumbs').getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -145,7 +145,7 @@ export async function testDb(): Promise<string> {
   const db = getDb();
   if (!db) return 'Not configured — add your Supabase URL and anon key.';
   try {
-    const { error } = await db.from('promptreel_prompts').select('id', { count: 'exact', head: true });
+    const { error } = await db.from('masterprompts_prompts').select('id', { count: 'exact', head: true });
     if (error) return 'Error: ' + error.message;
     return 'Connected ✓';
   } catch (e: any) {
