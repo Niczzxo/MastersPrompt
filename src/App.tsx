@@ -398,7 +398,7 @@ export default function App() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0a0908]/90 backdrop-blur border-b border-amber-400/10">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-3.5 flex items-center gap-2 md:gap-3">
-          <button onClick={() => go('home')} className="flex items-center gap-3 shrink-0">
+          <button onClick={() => go('home')} className="flex items-center gap-3 shrink-0 mx-auto sm:mx-0">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.35)]">
               <Crown className="text-black" size={20} />
             </div>
@@ -420,7 +420,7 @@ export default function App() {
               ))}
             </div>
           </nav>
-          <div className="flex-1" />
+          <div className="flex-1 hidden lg:block" />
           <div className="hidden md:flex relative w-64">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input value={query} onChange={(e) => { setQuery(e.target.value); if (route.view !== 'browse') go('browse'); }}
