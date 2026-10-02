@@ -514,21 +514,23 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
       </section>
 
       {/* Featured */}
-      <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Hand-picked</p>
-            <h3 className="font-display text-2xl md:text-3xl font-black text-white">Staff picks</h3>
-          </div>
-        </div>
-        <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
-          {featured.map((p) => (
-            <div key={p.id} className="w-72 md:w-80 shrink-0">
-              <PromptCard p={p} {...cardProps(p)} />
+      {featured.length > 0 && (
+        <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Hand-picked</p>
+              <h3 className="font-display text-2xl md:text-3xl font-black text-white">Staff picks</h3>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+          <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+            {featured.map((p) => (
+              <div key={p.id} className="w-72 md:w-80 shrink-0">
+                <PromptCard p={p} {...cardProps(p)} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Categories */}
       <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
