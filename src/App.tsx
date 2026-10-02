@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Plus, Copy, Check, X, Clock, Layers, Trash2, Upload,
-  Image as ImageIcon, Sparkles, ChevronDown, Settings as SettingsIcon,
-  Database, KeyRound, Heart, Film, ArrowLeft, Crown, LayoutGrid,
+  Search, Plus, Copy, Check, Clock, Layers, Trash2, Upload,
+  Image as ImageIcon, Sparkles, ChevronDown,
+  Database, Heart, Film, ArrowLeft, Crown, LayoutGrid,
   Share2, Eye, Tag, Zap, Home, FolderOpen, Bookmark, Maximize2,
 } from 'lucide-react';
 import {
@@ -14,8 +14,8 @@ import {
   getAllPrompts, addUserPrompt, deleteUserPrompt, bumpCopies,
 } from './lib/store';
 import {
-  getDbConfig, saveDbConfig, getDb, fetchDbPrompts, insertDbPrompt,
-  deleteDbPrompt, incrementDbCopies, uploadThumb, testDb,
+  getDbConfig, getDb, fetchDbPrompts, insertDbPrompt,
+  deleteDbPrompt, incrementDbCopies, uploadThumb,
 } from './lib/db';
 
 type Route = { view: 'home' | 'browse' | 'detail' | 'collections' | 'collection' | 'saved' | 'upload'; id?: string };
@@ -136,7 +136,6 @@ export default function App() {
   const [mineOnly, setMineOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<string[]>(loadSaved);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [dbOn, setDbOn] = useState(() => !!getDbConfig());
   const [dbNotice, setDbNotice] = useState('');
 
@@ -297,10 +296,6 @@ export default function App() {
             className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border ${dbOn ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-white/10 text-zinc-500 bg-white/5'}`}>
             <Database size={11} /> {dbOn ? 'DB' : 'Local'}
           </span>
-          <button onClick={() => setShowSettings(true)}
-            className="p-2.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-amber-300 transition-colors" title="Settings">
-            <SettingsIcon size={16} />
-          </button>
           <button onClick={() => go('upload')}
             className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-full text-xs uppercase tracking-widest ${goldBtn}`}>
             <Plus size={15} /> Upload
@@ -363,33 +358,6 @@ export default function App() {
       )}
       {route.view === 'upload' && (
         <UploadView onBack={() => go('browse')} onSaved={() => { setMineOnly(true); refresh(); go('browse'); }} />
-      )}
-
-      {showSettings && (
-        <SettingsModal
-          onClose={() => setShowSettings(false)}
-          onSaved={() => {
-            setShowSettings(false);
-            const on = !!getDbConfig();
-            setDbOn(on);
-            setDbNotice('');
-            if (on) {
-              fetchDbPrompts()
-                .then((dbPrompts) => {
-                  setItems((prev) => {
-                    const ids = new Set(prev.map((p) => p.id));
-                    const merged = [...prev];
-                    dbPrompts.forEach((p) => { if (!ids.has(p.id)) merged.push(p); });
-                    merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-                    return merged;
-                  });
-                })
-                .catch((e) => setDbNotice('Database error: ' + (e.message || 'could not load')));
-            } else {
-              refresh();
-            }
-          }}
-        />
       )}
 
       {/* Footer */}
@@ -938,79 +906,6 @@ function SavedView({ items, cardProps, onBrowse }: {
         </div>
       )}
     </main>
-  );
-}
-
-/* ── Settings ── */
-
-function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const existing = getDbConfig();
-  const [url, setUrl] = useState(existing?.url || '');
-  const [anonKey, setAnonKey] = useState(existing?.anonKey || '');
-  const [status, setStatus] = useState('');
-  const [testing, setTesting] = useState(false);
-
-  const test = async () => {
-    if (!url.trim() || !anonKey.trim()) {
-      setStatus('Enter both URL and anon key first.');
-      return;
-    }
-    setTesting(true);
-    saveDbConfig({ url: url.trim(), anonKey: anonKey.trim() });
-    setStatus(await testDb());
-    setTesting(false);
-  };
-
-  const save = () => {
-    if (url.trim() && anonKey.trim()) saveDbConfig({ url: url.trim(), anonKey: anonKey.trim() });
-    onSaved();
-  };
-
-  const disconnect = () => {
-    localStorage.removeItem('masterprompts-db-config');
-    onSaved();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-zinc-900 border border-amber-400/20 rounded-3xl p-6 md:p-8 space-y-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-black text-lg text-white uppercase tracking-tight flex items-center gap-2">
-            <Database size={18} className="text-amber-300" /> Database
-          </h3>
-          <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-xl"><X size={18} /></button>
-        </div>
-        <p className="text-xs text-zinc-500 leading-relaxed">
-          Connected to your Supabase project. Your uploads sync across devices.
-          Find credentials in Supabase dashboard → Project Settings → API.
-        </p>
-        <div className="space-y-1.5">
-          <label className={labelCls}>Supabase URL</label>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xyz.supabase.co" className={`${inputCls} font-mono`} />
-        </div>
-        <div className="space-y-1.5">
-          <label className={`${labelCls} flex items-center gap-1.5`}><KeyRound size={11} /> Anon public key</label>
-          <input type="password" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} placeholder="eyJhbGciOi…" className={`${inputCls} font-mono`} />
-        </div>
-        <div className="flex gap-2">
-          <button onClick={test} disabled={testing}
-            className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-50">
-            {testing ? 'Testing…' : 'Test connection'}
-          </button>
-          <button onClick={save} className={`flex-1 py-3 rounded-xl text-sm uppercase tracking-widest ${goldBtn}`}>
-            Save
-          </button>
-        </div>
-        <button onClick={disconnect} className="w-full text-[11px] text-zinc-600 hover:text-zinc-400">
-          Disconnect database (use browser storage only)
-        </button>
-        {status && (
-          <p className={`text-xs font-bold px-4 py-3 rounded-xl border ${status.includes('✓') ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
-            {status}
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
