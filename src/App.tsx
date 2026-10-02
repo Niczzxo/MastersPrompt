@@ -407,7 +407,7 @@ export default function App() {
               <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
           </button>
-          <nav className="hidden lg:block ml-4">
+          <nav className="hidden md:block ml-4">
             <div ref={desktopPill.containerRef} className="relative flex items-center gap-1">
               <div aria-hidden
                 className="absolute left-0 top-0 bottom-0 rounded-full bg-amber-400/15 border border-amber-400/40 shadow-[0_0_18px_rgba(212,175,55,0.25)]"
@@ -420,15 +420,15 @@ export default function App() {
               ))}
             </div>
           </nav>
-          <div className="flex-1 hidden lg:block" />
-          <div className="hidden md:flex relative w-64">
+          <div className="flex-1 hidden md:block" />
+          <div className="hidden lg:flex relative w-64">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input value={query} onChange={(e) => { setQuery(e.target.value); if (route.view !== 'browse') go('browse'); }}
               placeholder="Search prompts…"
               className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-amber-400/70 placeholder:text-zinc-600" />
           </div>
           <span title={dbOn ? 'Database connected' : 'Local mode'}
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border ${dbOn ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-white/10 text-zinc-500 bg-white/5'}`}>
+            className={`hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border ${dbOn ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-white/10 text-zinc-500 bg-white/5'}`}>
             <Database size={11} /> {dbOn ? 'DB' : 'Local'}
           </span>
           <button onClick={goUpload}
@@ -439,7 +439,7 @@ export default function App() {
       </header>
 
       {/* Mobile bottom tab bar — Upload FAB raised in the center */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="rounded-[1.75rem] bg-[#14120e]/95 backdrop-blur-xl border border-amber-400/15 shadow-[0_-10px_50px_rgba(0,0,0,0.65),0_0_30px_rgba(212,175,55,0.07)]">
           <div ref={mobilePill.containerRef} className="relative flex items-center justify-around px-2 pt-2.5 pb-2">
             {/* sliding top glow indicator — glides to the active tab */}
@@ -534,7 +534,7 @@ export default function App() {
       )}
 
       {/* spacer so the mobile bottom bar never covers content */}
-      <div className="h-24 lg:hidden" />
+      <div className="h-24 md:hidden" />
 
       {/* Footer */}
       <footer className="border-t border-amber-400/10 mt-8">
