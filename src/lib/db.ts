@@ -64,6 +64,7 @@ function rowToItem(r: any): PromptItem {
     duration: r.duration,
     aspectRatio: r.aspect_ratio,
     tags: r.tags || [],
+    type: r.type || 'video',
     image: r.image_url || undefined,
     createdAt: r.created_at,
     mine: true,
@@ -89,6 +90,7 @@ export async function insertDbPrompt(p: {
   duration: string;
   aspectRatio: string;
   tags: string[];
+  type?: 'video' | 'image';
   image?: string;
 }): Promise<PromptItem> {
   const db = getDb();
@@ -105,6 +107,7 @@ export async function insertDbPrompt(p: {
       duration: p.duration,
       aspect_ratio: p.aspectRatio,
       tags: p.tags,
+      type: p.type || 'video',
       image_url: p.image || null,
       copies: 0,
     })

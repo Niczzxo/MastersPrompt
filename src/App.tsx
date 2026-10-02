@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Search, Plus, Copy, Check, X, Clapperboard, Clock, Layers,
-  Trash2, Upload, Image as ImageIcon, Sparkles, ChevronDown,
-  Settings as SettingsIcon, Database, KeyRound,
+  Search, Plus, Copy, Check, X, Clock, Layers, Trash2, Upload,
+  Image as ImageIcon, Sparkles, ChevronDown, Settings as SettingsIcon,
+  Database, KeyRound, Heart, Film, ArrowLeft, Crown, LayoutGrid,
+  Share2, Eye, Tag, Zap, Home, FolderOpen, Bookmark, Maximize2,
 } from 'lucide-react';
 import {
-  CATEGORIES, MODELS, CATEGORY_STYLES, type PromptItem,
+  CATEGORIES, MODELS, IMAGE_MODELS, ALL_MODELS, CATEGORY_STYLES,
+  FEATURED_IDS, type PromptItem,
 } from './data/prompts';
+import { COLLECTIONS, promptsInCollection, type Collection } from './data/collections';
 import {
   getAllPrompts, addUserPrompt, deleteUserPrompt, bumpCopies,
 } from './lib/store';
@@ -15,12 +18,35 @@ import {
   deleteDbPrompt, incrementDbCopies, uploadThumb, testDb,
 } from './lib/db';
 
-type View = 'gallery' | 'upload';
+type Route = { view: 'home' | 'browse' | 'detail' | 'collections' | 'collection' | 'saved' | 'upload'; id?: string };
 type SortKey = 'newest' | 'oldest' | 'title';
+type TypeFilter = 'all' | 'video' | 'image';
+
+const SAVED_KEY = 'masterprompts-saved';
 
 const inputCls =
-  'w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-400/70 placeholder:text-zinc-600';
+  'w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-400/70 placeholder:text-zinc-600';
 const labelCls = 'text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1';
+const goldBtn =
+  'bg-gradient-to-r from-amber-200 via-yellow-500 to-amber-600 text-black font-black hover:brightness-110 transition-all';
+
+function loadSaved(): string[] {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return [];
+}
+
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch { return ''; }
+}
+
+function isVideo(p: PromptItem): boolean {
+  return p.type !== 'image';
+}
 
 function Thumb({ item, big }: { item: PromptItem; big?: boolean }) {
   const style = CATEGORY_STYLES[item.category] || CATEGORY_STYLES.Cinematic;
@@ -34,9 +60,63 @@ function Thumb({ item, big }: { item: PromptItem; big?: boolean }) {
     <div className={`w-full aspect-video bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2 relative overflow-hidden`}>
       <div className="absolute inset-0 opacity-20"
         style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, white 0%, transparent 40%), radial-gradient(circle at 70% 80%, black 0%, transparent 50%)' }} />
-      <span className="text-5xl relative">{style.icon}</span>
+      <span className={`${big ? 'text-7xl' : 'text-5xl'} relative`}>{style.icon}</span>
       <span className="relative text-[10px] font-black uppercase tracking-[0.3em] text-white/70">{item.category}</span>
     </div>
+  );
+}
+
+function TypeBadge({ item }: { item: PromptItem }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur border border-white/15 text-[10px] font-bold text-zinc-300">
+      {isVideo(item) ? <Film size={10} /> : <ImageIcon size={10} />}
+      {isVideo(item) ? 'Video' : 'Image'}
+    </span>
+  );
+}
+
+function PromptCard({ p, copies, saved, copied, onOpen, onCopy, onToggleSave }: {
+  p: PromptItem; copies: number; saved: boolean; copied: boolean;
+  onOpen: () => void; onCopy: () => void; onToggleSave: () => void;
+}) {
+  return (
+    <article
+      className="break-inside-avoid mb-5 bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-amber-400/40 hover:-translate-y-1 transition-all cursor-pointer group"
+      onClick={onOpen}>
+      <div className="relative">
+        <Thumb item={p} />
+        <div className="absolute top-3 left-3 flex gap-2">
+          <TypeBadge item={p} />
+          {p.mine && (
+            <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-[10px] font-black uppercase tracking-widest text-amber-300 border border-amber-400/40">Mine</span>
+          )}
+        </div>
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+            className={`p-2.5 rounded-xl backdrop-blur border transition-all ${saved ? 'bg-amber-400/90 border-amber-300 text-black' : 'bg-black/60 border-white/15 text-white hover:bg-amber-500/80'}`}
+            title={saved ? 'Remove from saved' : 'Save prompt'}>
+            <Heart size={15} fill={saved ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy(); }}
+            className="p-2.5 rounded-xl bg-black/60 backdrop-blur border border-white/15 text-white hover:bg-amber-500/80 transition-all"
+            title="Copy prompt">
+            {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          </button>
+        </div>
+      </div>
+      <div className="p-5">
+        <h3 className="font-bold text-white leading-snug mb-3">{p.title}</h3>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-200 font-bold">{p.model}</span>
+          <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-400">{p.category}</span>
+          <span className="ml-auto text-zinc-600 flex items-center gap-1">
+            <Copy size={11} /> {copies}
+          </span>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -44,22 +124,27 @@ export default function App() {
   const [items, setItems] = useState<PromptItem[]>(getAllPrompts);
   const [copiesMap, setCopiesMap] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {};
-    getAllPrompts().forEach((p) => { m[p.id] = (p as any).copies || 0; });
+    getAllPrompts().forEach((p) => { m[p.id] = p.copies || 0; });
     return m;
   });
-  const [view, setView] = useState<View>('gallery');
+  const [route, setRoute] = useState<Route>({ view: 'home' });
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('All');
   const [model, setModel] = useState<string>('All');
+  const [ptype, setPtype] = useState<TypeFilter>('all');
   const [sort, setSort] = useState<SortKey>('newest');
   const [mineOnly, setMineOnly] = useState(false);
-  const [selected, setSelected] = useState<PromptItem | null>(null);
+  const [savedIds, setSavedIds] = useState<string[]>(loadSaved);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [dbOn, setDbOn] = useState(() => !!getDbConfig());
   const [dbNotice, setDbNotice] = useState('');
 
-  // Load database prompts when configured
+  const go = (view: Route['view'], id?: string) => {
+    setRoute({ view, id });
+    window.scrollTo({ top: 0 });
+  };
+
   useEffect(() => {
     if (!getDbConfig()) return;
     fetchDbPrompts()
@@ -74,38 +159,16 @@ export default function App() {
         });
         setDbOn(true);
       })
-      .catch((e) => {
-        setDbNotice('Database error: ' + (e.message || 'could not load'));
-      });
+      .catch((e) => setDbNotice('Database error: ' + (e.message || 'could not load')));
   }, []);
 
   const refresh = () => {
     const all = getAllPrompts();
     setItems(all);
     const m: Record<string, number> = {};
-    all.forEach((p) => { m[p.id] = (p as any).copies || 0; });
+    all.forEach((p) => { m[p.id] = p.copies || 0; });
     setCopiesMap(m);
   };
-
-  const filtered = useMemo(() => {
-    let list = [...items];
-    if (mineOnly) list = list.filter((p) => p.mine);
-    if (category !== 'All') list = list.filter((p) => p.category === category);
-    if (model !== 'All') list = list.filter((p) => p.model === model);
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.prompt.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    }
-    if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    if (sort === 'oldest') list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title));
-    return list;
-  }, [items, query, category, model, sort, mineOnly]);
 
   const copyPrompt = async (p: PromptItem) => {
     try {
@@ -128,170 +191,180 @@ export default function App() {
     setTimeout(() => setCopiedId((c) => (c === p.id ? null : c)), 1600);
   };
 
+  const toggleSave = (id: string) => {
+    setSavedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      localStorage.setItem(SAVED_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this prompt?')) return;
     try {
-      if (id.startsWith('db-') && getDb()) {
-        await deleteDbPrompt(id);
-      } else {
-        deleteUserPrompt(id);
-      }
+      if (id.startsWith('db-') && getDb()) await deleteDbPrompt(id);
+      else deleteUserPrompt(id);
     } catch (e: any) {
       alert('Delete failed: ' + (e.message || 'unknown error'));
       return;
     }
-    setSelected(null);
+    setSavedIds((prev) => prev.filter((x) => x !== id));
     setItems((prev) => prev.filter((p) => p.id !== id));
+    go('browse');
   };
 
+  const shareLink = async (p: PromptItem) => {
+    const url = `${window.location.origin}${window.location.pathname}#prompt-${p.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* ignore */
+    }
+    setCopiedId('share-' + p.id);
+    setTimeout(() => setCopiedId((c) => (c === 'share-' + p.id ? null : c)), 1600);
+  };
+
+  const filtered = useMemo(() => {
+    let list = [...items];
+    if (mineOnly) list = list.filter((p) => p.mine);
+    if (ptype !== 'all') list = list.filter((p) => isVideo(p) === (ptype === 'video'));
+    if (category !== 'All') list = list.filter((p) => p.category === category);
+    if (model !== 'All') list = list.filter((p) => p.model === model);
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.prompt.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (sort === 'oldest') list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title));
+    return list;
+  }, [items, query, category, model, ptype, sort, mineOnly]);
+
+  const detailItem = route.view === 'detail' ? items.find((p) => p.id === route.id) || null : null;
+  const collection = route.view === 'collection' ? COLLECTIONS.find((c) => c.id === route.id) || null : null;
+  const savedItems = items.filter((p) => savedIds.includes(p.id));
+  const totalCopies = Object.values(copiesMap).reduce((a, b) => a + b, 0);
+
+  const cardProps = (p: PromptItem) => ({
+    copies: copiesMap[p.id] || 0,
+    saved: savedIds.includes(p.id),
+    copied: copiedId === p.id,
+    onOpen: () => go('detail', p.id),
+    onCopy: () => copyPrompt(p),
+    onToggleSave: () => toggleSave(p.id),
+  });
+
+  const navBtn = (view: Route['view'], label: string, Icon: any) => (
+    <button key={view} onClick={() => go(view)}
+      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-colors ${route.view === view || (view === 'browse' && route.view === 'detail') ? 'bg-amber-400/15 text-amber-200 border border-amber-400/40' : 'text-zinc-400 hover:text-white border border-transparent'}`}>
+      <Icon size={13} /> {label}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-[#0b0b0f] text-zinc-200">
+    <div className="min-h-screen bg-[#0a0908] text-zinc-200">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0b0b0f]/90 backdrop-blur border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4 flex items-center gap-3">
-          <button onClick={() => { setView('gallery'); setSelected(null); }} className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-400 to-fuchsia-600 flex items-center justify-center">
-              <Clapperboard className="text-white" size={20} />
+      <header className="sticky top-0 z-40 bg-[#0a0908]/90 backdrop-blur border-b border-amber-400/10">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-3.5 flex items-center gap-2 md:gap-3">
+          <button onClick={() => go('home')} className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.35)]">
+              <Crown className="text-black" size={20} />
             </div>
-            <div className="text-left">
-              <h1 className="font-black text-lg tracking-tight text-white leading-none">MasterPrompts</h1>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Video prompts library</p>
+            <div className="text-left hidden xs:block sm:block">
+              <h1 className="font-display font-black text-lg tracking-tight text-white leading-none">MasterPrompts</h1>
+              <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
           </button>
+          <nav className="hidden lg:flex items-center gap-1 ml-4">
+            {navBtn('home', 'Home', Home)}
+            {navBtn('browse', 'Browse', LayoutGrid)}
+            {navBtn('collections', 'Collections', FolderOpen)}
+            {navBtn('saved', 'Saved', Bookmark)}
+          </nav>
           <div className="flex-1" />
-          <div className="hidden md:flex relative w-72">
+          <div className="hidden md:flex relative w-64">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search prompts…"
-              className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-violet-400/70 placeholder:text-zinc-600" />
+            <input value={query} onChange={(e) => { setQuery(e.target.value); if (route.view !== 'browse') go('browse'); }}
+              placeholder="Search prompts…"
+              className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-amber-400/70 placeholder:text-zinc-600" />
           </div>
-          <button onClick={() => setMineOnly((v) => !v)}
-            className={`px-4 py-2.5 rounded-full text-xs font-bold border transition-colors ${mineOnly ? 'border-violet-400/60 bg-violet-400/10 text-violet-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>
-            My Prompts
-          </button>
           <span title={dbOn ? 'Database connected' : 'Local storage mode — connect DB in Settings'}
             className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border ${dbOn ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-white/10 text-zinc-500 bg-white/5'}`}>
             <Database size={11} /> {dbOn ? 'DB' : 'Local'}
           </span>
           <button onClick={() => setShowSettings(true)}
-            className="p-2.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white transition-colors" title="Settings">
+            className="p-2.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-amber-300 transition-colors" title="Settings">
             <SettingsIcon size={16} />
           </button>
-          <button onClick={() => setView('upload')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-500 text-black text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all">
+          <button onClick={() => go('upload')}
+            className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-full text-xs uppercase tracking-widest ${goldBtn}`}>
             <Plus size={15} /> Upload
           </button>
         </div>
-        <div className="md:hidden px-4 pb-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search prompts…"
-              className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-violet-400/70 placeholder:text-zinc-600" />
-          </div>
-        </div>
+        <nav className="lg:hidden flex items-center gap-1 px-4 pb-3 overflow-x-auto no-scrollbar">
+          {navBtn('home', 'Home', Home)}
+          {navBtn('browse', 'Browse', LayoutGrid)}
+          {navBtn('collections', 'Collections', FolderOpen)}
+          {navBtn('saved', 'Saved', Bookmark)}
+          <button onClick={() => go('upload')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold ${goldBtn}`}>
+            <Plus size={13} /> Upload
+          </button>
+        </nav>
       </header>
 
-      {view === 'gallery' ? (
-        <main className="max-w-[1400px] mx-auto px-4 md:px-8 pb-16">
-          {/* Hero */}
-          <section className="py-10 md:py-14 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-violet-400/10 border border-violet-400/30 text-violet-300 text-[11px] font-bold uppercase tracking-widest mb-5">
-              <Sparkles size={12} /> {items.length} prompts · {CATEGORIES.length} categories
-            </div>
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white max-w-3xl mx-auto leading-tight">
-              AI video prompts, ready to <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">steal & create</span>
-            </h2>
-            <p className="text-zinc-500 text-sm md:text-base mt-4 max-w-xl mx-auto">
-              Browse the collection, copy any prompt with one tap, or upload your own to build your personal vault.
-            </p>
-          </section>
+      {dbNotice && (
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-4">
+          <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5">{dbNotice}</p>
+        </div>
+      )}
 
-          {/* Filters */}
-          <section className="flex flex-wrap items-center gap-2 mb-8">
-            {['All', ...CATEGORIES].map((c) => (
-              <button key={c} onClick={() => setCategory(c)}
-                className={`px-4 py-2 rounded-full text-xs font-bold border transition-colors ${category === c ? 'border-violet-400/60 bg-violet-400/15 text-violet-200' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'}`}>
-                {c}
-              </button>
-            ))}
-            <div className="flex-1" />
-            <div className="relative">
-              <select value={model} onChange={(e) => setModel(e.target.value)}
-                className="appearance-none bg-black/40 border border-white/10 rounded-full pl-4 pr-9 py-2 text-xs font-bold text-zinc-300 outline-none focus:border-violet-400/70">
-                <option value="All" className="bg-zinc-900">All models</option>
-                {MODELS.map((m) => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
-              </select>
-              <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-            </div>
-            <div className="relative">
-              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
-                className="appearance-none bg-black/40 border border-white/10 rounded-full pl-4 pr-9 py-2 text-xs font-bold text-zinc-300 outline-none focus:border-violet-400/70">
-                <option value="newest" className="bg-zinc-900">Newest</option>
-                <option value="oldest" className="bg-zinc-900">Oldest</option>
-                <option value="title" className="bg-zinc-900">Title A–Z</option>
-              </select>
-              <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-            </div>
-          </section>
-
-          {/* Grid */}
-          {filtered.length === 0 ? (
-            <div className="text-center py-20 text-zinc-600">
-              <Clapperboard size={40} className="mx-auto mb-4 opacity-30" />
-              <p className="text-sm">No prompts found. Try another search — or upload your own!</p>
-            </div>
-          ) : (
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:balance]">
-              {filtered.map((p) => (
-                <article key={p.id}
-                  className="break-inside-avoid mb-5 bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-violet-400/40 hover:-translate-y-0.5 transition-all cursor-pointer group"
-                  onClick={() => setSelected(p)}>
-                  <div className="relative">
-                    <Thumb item={p} />
-                    {p.mine && (
-                      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-[10px] font-black uppercase tracking-widest text-violet-300 border border-violet-400/40">Mine</span>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyPrompt(p); }}
-                      className="absolute top-3 right-3 p-2.5 rounded-xl bg-black/60 backdrop-blur border border-white/15 text-white opacity-0 group-hover:opacity-100 hover:bg-violet-500/80 transition-all"
-                      title="Copy prompt">
-                      {copiedId === p.id ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
-                    </button>
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-white leading-snug mb-3">{p.title}</h3>
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <span className="px-2.5 py-1 rounded-full bg-violet-400/10 border border-violet-400/30 text-violet-300 font-bold">{p.model}</span>
-                      <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-400">{p.category}</span>
-                      <span className="ml-auto text-zinc-600 flex items-center gap-1">
-                        <Copy size={11} /> {copiesMap[p.id] || 0}
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+      {route.view === 'home' && (
+        <HomeView items={items} copiesMap={copiesMap} cardProps={cardProps}
+          onSearch={(q) => { setQuery(q); go('browse'); }}
+          onCategory={(c) => { setCategory(c); setQuery(''); go('browse'); }}
+          onUpload={() => go('upload')} />
+      )}
+      {route.view === 'browse' && (
+        <BrowseView items={filtered} query={query} setQuery={setQuery}
+          category={category} setCategory={setCategory} model={model} setModel={setModel}
+          ptype={ptype} setPtype={setPtype} sort={sort} setSort={setSort}
+          mineOnly={mineOnly} setMineOnly={setMineOnly} cardProps={cardProps} />
+      )}
+      {route.view === 'detail' && detailItem && (
+        <DetailView item={detailItem} items={items} copies={copiesMap[detailItem.id] || 0}
+          saved={savedIds.includes(detailItem.id)} copied={copiedId === detailItem.id}
+          shareCopied={copiedId === 'share-' + detailItem.id}
+          onCopy={() => copyPrompt(detailItem)} onToggleSave={() => toggleSave(detailItem.id)}
+          onShare={() => shareLink(detailItem)} onDelete={() => handleDelete(detailItem.id)}
+          onOpen={(id) => go('detail', id)} onBack={() => go('browse')}
+          onCategory={(c) => { setCategory(c); go('browse'); }} cardProps={cardProps} />
+      )}
+      {route.view === 'detail' && !detailItem && (
+        <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-20 text-center text-zinc-500">
+          <p>Prompt not found.</p>
+          <button onClick={() => go('browse')} className="mt-4 text-amber-300 font-bold text-sm">← Back to browse</button>
         </main>
-      ) : (
-        <UploadView
-          onBack={() => setView('gallery')}
-          onSaved={() => { setView('gallery'); setMineOnly(true); refresh(); }}
-        />
+      )}
+      {route.view === 'collections' && (
+        <CollectionsView onOpen={(id) => go('collection', id)} items={items} />
+      )}
+      {route.view === 'collection' && collection && (
+        <CollectionDetailView collection={collection} items={promptsInCollection(collection, items)}
+          cardProps={cardProps} onBack={() => go('collections')} />
+      )}
+      {route.view === 'saved' && (
+        <SavedView items={savedItems} cardProps={cardProps} onBrowse={() => go('browse')} />
+      )}
+      {route.view === 'upload' && (
+        <UploadView onBack={() => go('browse')} onSaved={() => { setMineOnly(true); refresh(); go('browse'); }} />
       )}
 
-      {/* Detail modal */}
-      {selected && (
-        <DetailModal
-          item={selected}
-          copies={copiesMap[selected.id] || 0}
-          copied={copiedId === selected.id}
-          onCopy={() => copyPrompt(selected)}
-          onClose={() => setSelected(null)}
-          onDelete={() => handleDelete(selected.id)}
-        />
-      )}
-
-      {/* Settings modal */}
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
@@ -319,20 +392,556 @@ export default function App() {
         />
       )}
 
-      {dbNotice && (
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-          <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 mb-4">{dbNotice}</p>
-        </div>
-      )}
-
       {/* Footer */}
-      <footer className="border-t border-white/10 py-10 text-center">
-        <p className="font-black text-white">MasterPrompts</p>
-        <p className="text-xs text-zinc-600 mt-2">Your personal AI video prompts vault · All seed prompts are original</p>
+      <footer className="border-t border-amber-400/10 mt-8">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-12 grid md:grid-cols-4 gap-8">
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center">
+                <Crown className="text-black" size={17} />
+              </div>
+              <p className="font-display font-black text-white text-lg">MasterPrompts</p>
+            </div>
+            <p className="text-xs text-zinc-500 leading-relaxed max-w-sm">
+              The premium library of AI video & image prompts. Every prompt is original,
+              curated by the MasterPrompts studio and ready to copy in one tap.
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-4">Explore</p>
+            <div className="space-y-2.5 text-sm">
+              <button onClick={() => go('browse')} className="block text-zinc-400 hover:text-amber-300">Browse prompts</button>
+              <button onClick={() => go('collections')} className="block text-zinc-400 hover:text-amber-300">Collections</button>
+              <button onClick={() => go('saved')} className="block text-zinc-400 hover:text-amber-300">Saved prompts</button>
+              <button onClick={() => go('upload')} className="block text-zinc-400 hover:text-amber-300">Upload a prompt</button>
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-4">Categories</p>
+            <div className="space-y-2.5 text-sm">
+              {CATEGORIES.slice(0, 4).map((c) => (
+                <button key={c} onClick={() => { setCategory(c); go('browse'); }}
+                  className="block text-zinc-400 hover:text-amber-300">{c}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-white/5 py-6 text-center">
+          <p className="text-[11px] text-zinc-600">MasterPrompts © 2026 · {items.length} prompts · {totalCopies.toLocaleString()} copies served</p>
+        </div>
       </footer>
     </div>
   );
 }
+
+/* ── Home ── */
+
+function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload }: {
+  items: PromptItem[]; copiesMap: Record<string, number>;
+  cardProps: (p: PromptItem) => any;
+  onSearch: (q: string) => void; onCategory: (c: string) => void; onUpload: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const featured = FEATURED_IDS.map((id) => items.find((p) => p.id === id)).filter(Boolean) as PromptItem[];
+  const totalCopies = Object.values(copiesMap).reduce((a, b) => a + b, 0);
+  const stats = [
+    { n: items.length.toString(), l: 'Curated prompts' },
+    { n: CATEGORIES.length.toString(), l: 'Categories' },
+    { n: ALL_MODELS.length.toString(), l: 'AI models' },
+    { n: totalCopies.toLocaleString(), l: 'Copies served' },
+  ];
+
+  return (
+    <main>
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-25 blur-[120px]"
+            style={{ background: 'radial-gradient(circle, #d4af37 0%, transparent 70%)' }} />
+        </div>
+        <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-12 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full gold-card text-amber-200 text-[11px] font-bold uppercase tracking-widest mb-6">
+            <Sparkles size={12} /> The premium AI prompts library
+          </div>
+          <h2 className="font-display text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.05]">
+            Craft cinema from a<br /><span className="gold-text italic">single sentence.</span>
+          </h2>
+          <p className="text-zinc-400 text-sm md:text-lg mt-6 max-w-2xl mx-auto leading-relaxed">
+            Hand-curated video & image prompts for Seedance, Veo, Sora, Midjourney and more.
+            Copy any prompt in one tap — or save it to your vault.
+          </p>
+          <form
+            onSubmit={(e) => { e.preventDefault(); onSearch(q); }}
+            className="mt-8 max-w-2xl mx-auto relative">
+            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-amber-400/60" />
+            <input value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Try “neon samurai”, “aerial”, “product shot”…"
+              className="w-full bg-black/50 border border-amber-400/25 rounded-full pl-13 pr-32 py-4 md:py-5 text-sm md:text-base text-white outline-none focus:border-amber-400/70 placeholder:text-zinc-600 shadow-[0_0_40px_rgba(212,175,55,0.12)]" />
+            <button type="submit"
+              className={`absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2.5 md:py-3 rounded-full text-xs font-black uppercase tracking-widest ${goldBtn}`}>
+              Search
+            </button>
+          </form>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mt-12">
+            {stats.map((s) => (
+              <div key={s.l} className="gold-card rounded-2xl px-4 py-5">
+                <p className="font-display text-2xl md:text-3xl font-black gold-text">{s.n}</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mt-1">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured */}
+      <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Hand-picked</p>
+            <h3 className="font-display text-2xl md:text-3xl font-black text-white">Staff picks</h3>
+          </div>
+        </div>
+        <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+          {featured.map((p) => (
+            <div key={p.id} className="w-72 md:w-80 shrink-0">
+              <PromptCard p={p} {...cardProps(p)} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Categories */}
+      <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Find your style</p>
+        <h3 className="font-display text-2xl md:text-3xl font-black text-white mb-6">Browse by category</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {CATEGORIES.map((c) => {
+            const style = CATEGORY_STYLES[c];
+            const count = items.filter((p) => p.category === c).length;
+            return (
+              <button key={c} onClick={() => onCategory(c)}
+                className={`relative overflow-hidden rounded-3xl p-6 text-left bg-gradient-to-br ${style.gradient} hover:scale-[1.02] transition-transform group`}>
+                <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition-colors" />
+                <span className="relative text-3xl">{style.icon}</span>
+                <p className="relative font-display font-black text-white text-lg mt-3">{c}</p>
+                <p className="relative text-[11px] text-white/70 font-bold uppercase tracking-widest mt-1">{count} prompts</p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-14">
+        <div className="gold-card rounded-[2rem] p-8 md:p-14 relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-20 blur-[80px]"
+            style={{ background: '#d4af37' }} />
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2 text-center">Effortless</p>
+          <h3 className="font-display text-3xl md:text-4xl font-black text-white text-center mb-10">From idea to generation in <span className="gold-text italic">seconds</span></h3>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: <Search size={22} />, t: 'Discover', d: 'Browse curated prompts by category, model or mood — every one tested for quality.' },
+              { icon: <Copy size={22} />, t: 'Copy in one tap', d: 'A single tap copies the full prompt, tuned with camera language and style keywords.' },
+              { icon: <Zap size={22} />, t: 'Generate anywhere', d: 'Paste into Seedance, Veo, Sora or Midjourney and watch your vision come alive.' },
+            ].map((s, i) => (
+              <div key={s.t} className="bg-black/30 border border-amber-400/15 rounded-3xl p-7">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black mb-5">
+                  {s.icon}
+                </div>
+                <p className="text-[11px] font-black text-amber-400/70 uppercase tracking-widest mb-1">Step {i + 1}</p>
+                <h4 className="font-display text-xl font-black text-white mb-2">{s.t}</h4>
+                <p className="text-sm text-zinc-400 leading-relaxed">{s.d}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <button onClick={onUpload}
+              className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest ${goldBtn}`}>
+              <Plus size={16} /> Share your own prompt
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+/* ── Browse ── */
+
+function BrowseView({ items, query, setQuery, category, setCategory, model, setModel, ptype, setPtype, sort, setSort, mineOnly, setMineOnly, cardProps }: {
+  items: PromptItem[]; query: string; setQuery: (v: string) => void;
+  category: string; setCategory: (v: string) => void; model: string; setModel: (v: string) => void;
+  ptype: TypeFilter; setPtype: (v: TypeFilter) => void; sort: SortKey; setSort: (v: SortKey) => void;
+  mineOnly: boolean; setMineOnly: (v: boolean) => void;
+  cardProps: (p: PromptItem) => any;
+}) {
+  return (
+    <main className="max-w-[1400px] mx-auto px-4 md:px-8 pb-16">
+      <section className="py-10 md:py-12">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">The vault</p>
+        <h2 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight">
+          Browse <span className="gold-text italic">{items.length}</span> prompts
+        </h2>
+        <div className="md:hidden relative mt-6">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search prompts…"
+            className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-amber-400/70 placeholder:text-zinc-600" />
+        </div>
+      </section>
+
+      {/* Type toggle */}
+      <section className="flex items-center gap-2 mb-5">
+        {([
+          { k: 'all', label: 'All', Icon: LayoutGrid },
+          { k: 'video', label: 'Video', Icon: Film },
+          { k: 'image', label: 'Image', Icon: ImageIcon },
+        ] as const).map(({ k, label, Icon }) => (
+          <button key={k} onClick={() => setPtype(k)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${ptype === k ? 'bg-gradient-to-r from-amber-200 to-amber-500 text-black border-transparent shadow-[0_0_20px_rgba(212,175,55,0.3)]' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'}`}>
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button onClick={() => setMineOnly(!mineOnly)}
+          className={`px-4 py-2.5 rounded-full text-xs font-bold border transition-colors ${mineOnly ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>
+          My Prompts
+        </button>
+      </section>
+
+      {/* Filters */}
+      <section className="flex flex-wrap items-center gap-2 mb-8">
+        {['All', ...CATEGORIES].map((c) => (
+          <button key={c} onClick={() => setCategory(c)}
+            className={`px-4 py-2 rounded-full text-xs font-bold border transition-colors ${category === c ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'}`}>
+            {c}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <div className="relative">
+          <select value={model} onChange={(e) => setModel(e.target.value)}
+            className="appearance-none bg-black/40 border border-white/10 rounded-full pl-4 pr-9 py-2 text-xs font-bold text-zinc-300 outline-none focus:border-amber-400/70">
+            <option value="All" className="bg-zinc-900">All models</option>
+            {ALL_MODELS.map((m) => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+          </select>
+          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+        </div>
+        <div className="relative">
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
+            className="appearance-none bg-black/40 border border-white/10 rounded-full pl-4 pr-9 py-2 text-xs font-bold text-zinc-300 outline-none focus:border-amber-400/70">
+            <option value="newest" className="bg-zinc-900">Newest</option>
+            <option value="oldest" className="bg-zinc-900">Oldest</option>
+            <option value="title" className="bg-zinc-900">Title A–Z</option>
+          </select>
+          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+        </div>
+      </section>
+
+      {items.length === 0 ? (
+        <div className="text-center py-20 text-zinc-600">
+          <Crown size={40} className="mx-auto mb-4 opacity-30" />
+          <p className="text-sm">No prompts found. Try another search — or upload your own!</p>
+        </div>
+      ) : (
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:balance]">
+          {items.map((p) => (
+            <PromptCard key={p.id} p={p} {...cardProps(p)} />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+/* ── Detail page ── */
+
+function DetailView({ item, items, copies, saved, copied, shareCopied, onCopy, onToggleSave, onShare, onDelete, onOpen, onBack, onCategory, cardProps }: {
+  item: PromptItem; items: PromptItem[]; copies: number;
+  saved: boolean; copied: boolean; shareCopied: boolean;
+  onCopy: () => void; onToggleSave: () => void; onShare: () => void; onDelete: () => void;
+  onOpen: (id: string) => void; onBack: () => void; onCategory: (c: string) => void;
+  cardProps: (p: PromptItem) => any;
+}) {
+  const related = items.filter((p) => p.id !== item.id && p.category === item.category).slice(0, 6);
+  const video = isVideo(item);
+  const compatModels = (video ? MODELS : IMAGE_MODELS).filter((m) => m !== item.model).slice(0, 3);
+
+  return (
+    <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-xs text-zinc-500 mb-6 flex-wrap">
+        <button onClick={onBack} className="flex items-center gap-1 hover:text-amber-300"><Home size={12} /> Browse</button>
+        <span>/</span>
+        <button onClick={() => onCategory(item.category)} className="hover:text-amber-300">{item.category}</button>
+        <span>/</span>
+        <span className="text-zinc-300 font-bold truncate max-w-[200px] md:max-w-md">{item.title}</span>
+      </nav>
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Main */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="rounded-[2rem] overflow-hidden border border-amber-400/15 relative">
+            <Thumb item={item} big />
+            <div className="absolute top-4 left-4"><TypeBadge item={item} /></div>
+          </div>
+
+          <div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-200 text-[11px] font-bold">{item.model}</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[11px]">{item.category}</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[11px] flex items-center gap-1"><Copy size={11} /> {copies} copies</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[11px] flex items-center gap-1"><Eye size={11} /> {fmtDate(item.createdAt)}</span>
+            </div>
+            <h1 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">{item.title}</h1>
+            <div className="flex flex-wrap gap-3 mt-6">
+              <button onClick={onCopy}
+                className={`flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest ${copied ? 'bg-emerald-500 text-black' : goldBtn}`}>
+                {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy prompt</>}
+              </button>
+              <button onClick={onToggleSave}
+                className={`flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border transition-all ${saved ? 'bg-amber-400/15 border-amber-400/50 text-amber-200' : 'border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200'}`}>
+                <Heart size={16} fill={saved ? 'currentColor' : 'none'} /> {saved ? 'Saved' : 'Save'}
+              </button>
+              <button onClick={onShare}
+                className="flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200 transition-all">
+                {shareCopied ? <Check size={16} className="text-emerald-400" /> : <Share2 size={16} />} {shareCopied ? 'Link copied' : 'Share'}
+              </button>
+            </div>
+          </div>
+
+          {/* Prompt */}
+          <section>
+            <p className={`${labelCls} flex items-center gap-1.5 mb-2`}><Sparkles size={11} className="text-amber-400" /> The prompt</p>
+            <div className="bg-black/40 border border-amber-400/15 rounded-3xl p-6 md:p-8 text-[15px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
+              {item.prompt}
+            </div>
+          </section>
+
+          {/* Settings */}
+          <section>
+            <p className={`${labelCls} mb-3`}>Recommended settings</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="gold-card rounded-2xl p-5">
+                <p className={labelCls}>{video ? 'Duration' : 'Dimensions'}</p>
+                <p className="text-white font-black mt-1.5 flex items-center gap-2 text-sm md:text-base"><Clock size={15} className="text-amber-300 shrink-0" /> {item.duration}</p>
+              </div>
+              <div className="gold-card rounded-2xl p-5">
+                <p className={labelCls}>Aspect ratio</p>
+                <p className="text-white font-black mt-1.5 flex items-center gap-2 text-sm md:text-base"><Layers size={15} className="text-amber-300 shrink-0" /> {item.aspectRatio}</p>
+              </div>
+              <div className="gold-card rounded-2xl p-5">
+                <p className={labelCls}>Best for</p>
+                <p className="text-white font-black mt-1.5 flex items-center gap-2 text-sm md:text-base"><Maximize2 size={15} className="text-amber-300 shrink-0" /> {video ? 'Video gen' : 'Image gen'}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Compatible models */}
+          <section>
+            <p className={`${labelCls} mb-3`}>Compatible models</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-500 text-black text-xs font-black">{item.model} ✓</span>
+              {compatModels.map((m) => (
+                <span key={m} className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-zinc-300 text-xs font-bold">{m}</span>
+              ))}
+            </div>
+          </section>
+
+          {/* How to use */}
+          <section className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8">
+            <p className={`${labelCls} mb-5`}>How to use this prompt</p>
+            <div className="space-y-5">
+              {[
+                { t: 'Copy the prompt', d: 'Hit the gold copy button above — the full prompt, with camera and style language, lands on your clipboard.' },
+                { t: 'Paste into your generator', d: `Open ${item.model} (or any compatible model), set ${video ? `duration to ${item.duration}` : `dimensions to ${item.duration}`} and ${item.aspectRatio} framing, then paste.` },
+                { t: 'Refine & remix', d: 'Swap the subject, lighting or mood words to make it yours — then save the remix to your vault.' },
+              ].map((s, i) => (
+                <div key={s.t} className="flex gap-4">
+                  <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black font-black text-sm">{i + 1}</div>
+                  <div>
+                    <p className="font-bold text-white text-sm">{s.t}</p>
+                    <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{s.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Tags */}
+          {item.tags.length > 0 && (
+            <section>
+              <p className={`${labelCls} mb-3 flex items-center gap-1.5`}><Tag size={11} /> Tags</p>
+              <div className="flex flex-wrap gap-2">
+                {item.tags.map((t) => (
+                  <span key={t} className="px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 hover:border-amber-400/40 hover:text-amber-200 transition-colors cursor-default">#{t}</span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {item.mine && (
+            <button onClick={onDelete} className="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 font-bold">
+              <Trash2 size={14} /> Delete this prompt
+            </button>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <aside className="space-y-6">
+          <div className="gold-card rounded-3xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.35)]">
+                <Crown className="text-black" size={24} />
+              </div>
+              <div>
+                <p className="font-black text-white">MasterPrompts Studio</p>
+                <p className="text-[11px] text-zinc-500">Curated prompt studio</p>
+              </div>
+            </div>
+            <button className={`w-full mt-5 py-3 rounded-full text-xs font-black uppercase tracking-widest ${goldBtn}`}>
+              Follow studio
+            </button>
+            <p className="text-[11px] text-zinc-600 text-center mt-3">Get new curated prompts every week</p>
+          </div>
+
+          <div className="bg-white/[0.03] border border-white/10 rounded-3xl p-6">
+            <p className={`${labelCls} mb-4`}>Overview</p>
+            <div className="space-y-3 text-sm">
+              {[
+                ['Status', 'Curated ✓'],
+                ['Type', video ? 'Video prompt' : 'Image prompt'],
+                ['Category', item.category],
+                ['Published', fmtDate(item.createdAt)],
+                ['Prompt ID', item.id],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4">
+                  <span className="text-zinc-500">{k}</span>
+                  <span className="text-zinc-200 font-bold text-right">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Related */}
+      {related.length > 0 && (
+        <section className="mt-14">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-display text-2xl md:text-3xl font-black text-white">Related prompts</h3>
+            <button onClick={() => onCategory(item.category)} className="text-xs font-black uppercase tracking-widest text-amber-300 hover:text-amber-200">
+              More {item.category} →
+            </button>
+          </div>
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+            {related.map((p) => (
+              <PromptCard key={p.id} p={p} {...cardProps(p)} />
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+/* ── Collections ── */
+
+function CollectionsView({ items, onOpen }: { items: PromptItem[]; onOpen: (id: string) => void }) {
+  return (
+    <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 md:py-14">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">Curated for you</p>
+      <h2 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight mb-3">
+        Prompt <span className="gold-text italic">collections</span>
+      </h2>
+      <p className="text-zinc-500 text-sm md:text-base max-w-2xl mb-10">
+        Themed bundles assembled by the MasterPrompts studio — grab a whole pack of ideas in one go.
+      </p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {COLLECTIONS.map((c) => {
+          const count = promptsInCollection(c, items).length;
+          return (
+            <button key={c.id} onClick={() => onOpen(c.id)}
+              className={`relative overflow-hidden rounded-[2rem] p-8 text-left bg-gradient-to-br ${c.gradient} hover:scale-[1.02] transition-transform group min-h-[240px] flex flex-col justify-end`}>
+              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/15 transition-colors" />
+              <span className="absolute top-6 right-6 text-5xl animate-float-slow">{c.icon}</span>
+              <div className="relative">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70 mb-2">{count} prompts</p>
+                <h3 className="font-display text-2xl font-black text-white mb-2">{c.title}</h3>
+                <p className="text-sm text-white/75 leading-relaxed mb-4">{c.description}</p>
+                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-white">
+                  Explore collection <ArrowLeft size={13} className="rotate-180" />
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </main>
+  );
+}
+
+function CollectionDetailView({ collection, items, cardProps, onBack }: {
+  collection: Collection; items: PromptItem[]; cardProps: (p: PromptItem) => any; onBack: () => void;
+}) {
+  return (
+    <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-8">
+      <button onClick={onBack} className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-amber-300 mb-6">
+        <ArrowLeft size={14} /> All collections
+      </button>
+      <div className={`relative overflow-hidden rounded-[2rem] p-8 md:p-12 bg-gradient-to-br ${collection.gradient} mb-10`}>
+        <div className="absolute inset-0 bg-black/30" />
+        <span className="absolute top-8 right-8 text-7xl animate-float-slow">{collection.icon}</span>
+        <div className="relative max-w-2xl">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70 mb-2">{items.length} prompts</p>
+          <h2 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight mb-3">{collection.title}</h2>
+          <p className="text-white/80 text-sm md:text-base leading-relaxed">{collection.description}</p>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-center text-zinc-600 py-16 text-sm">No prompts in this collection yet.</p>
+      ) : (
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+          {items.map((p) => (
+            <PromptCard key={p.id} p={p} {...cardProps(p)} />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+/* ── Saved ── */
+
+function SavedView({ items, cardProps, onBrowse }: {
+  items: PromptItem[]; cardProps: (p: PromptItem) => any; onBrowse: () => void;
+}) {
+  return (
+    <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 md:py-14">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">Your vault</p>
+      <h2 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight mb-3">
+        Saved <span className="gold-text italic">prompts</span>
+      </h2>
+      <p className="text-zinc-500 text-sm mb-10">Tap the heart on any prompt to keep it here, on this device.</p>
+      {items.length === 0 ? (
+        <div className="text-center py-20">
+          <Heart size={44} className="mx-auto mb-5 text-amber-400/30" />
+          <p className="text-zinc-400 font-bold mb-2">Nothing saved yet</p>
+          <p className="text-sm text-zinc-600 mb-6">Hearts you tap on prompts will live here.</p>
+          <button onClick={onBrowse} className={`px-8 py-3.5 rounded-full text-xs font-black uppercase tracking-widest ${goldBtn}`}>
+            Browse prompts
+          </button>
+        </div>
+      ) : (
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+          {items.map((p) => (
+            <PromptCard key={p.id} p={p} {...cardProps(p)} />
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+/* ── Settings ── */
 
 function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const existing = getDbConfig();
@@ -353,9 +962,7 @@ function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   };
 
   const save = () => {
-    if (url.trim() && anonKey.trim()) {
-      saveDbConfig({ url: url.trim(), anonKey: anonKey.trim() });
-    }
+    if (url.trim() && anonKey.trim()) saveDbConfig({ url: url.trim(), anonKey: anonKey.trim() });
     onSaved();
   };
 
@@ -366,126 +973,51 @@ function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-3xl p-6 md:p-8 space-y-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg bg-zinc-900 border border-amber-400/20 rounded-3xl p-6 md:p-8 space-y-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-black text-lg text-white uppercase tracking-tight flex items-center gap-2">
-            <Database size={18} className="text-violet-300" /> Database
+            <Database size={18} className="text-amber-300" /> Database
           </h3>
           <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-xl"><X size={18} /></button>
         </div>
-
         <p className="text-xs text-zinc-500 leading-relaxed">
-          Connect your Supabase project to store prompts in a real database (works across devices).
-          Without this, uploads are kept in this browser only. Find these in your Supabase dashboard →
-          Project Settings → API.
+          Connected to your Supabase project. Your uploads sync across devices.
+          Find credentials in Supabase dashboard → Project Settings → API.
         </p>
-
         <div className="space-y-1.5">
           <label className={labelCls}>Supabase URL</label>
-          <input value={url} onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://xyz.supabase.co"
-            className={`${inputCls} font-mono`} />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xyz.supabase.co" className={`${inputCls} font-mono`} />
         </div>
-
         <div className="space-y-1.5">
           <label className={`${labelCls} flex items-center gap-1.5`}><KeyRound size={11} /> Anon public key</label>
-          <input type="password" value={anonKey} onChange={(e) => setAnonKey(e.target.value)}
-            placeholder="eyJhbGciOi…"
-            className={`${inputCls} font-mono`} />
+          <input type="password" value={anonKey} onChange={(e) => setAnonKey(e.target.value)} placeholder="eyJhbGciOi…" className={`${inputCls} font-mono`} />
         </div>
-
         <div className="flex gap-2">
           <button onClick={test} disabled={testing}
             className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-50">
             {testing ? 'Testing…' : 'Test connection'}
           </button>
-          <button onClick={save}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-400 to-fuchsia-500 text-black text-sm font-black uppercase tracking-widest hover:brightness-110">
+          <button onClick={save} className={`flex-1 py-3 rounded-xl text-sm uppercase tracking-widest ${goldBtn}`}>
             Save
           </button>
         </div>
         <button onClick={disconnect} className="w-full text-[11px] text-zinc-600 hover:text-zinc-400">
           Disconnect database (use browser storage only)
         </button>
-
         {status && (
           <p className={`text-xs font-bold px-4 py-3 rounded-xl border ${status.includes('✓') ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
             {status}
           </p>
         )}
-
-        <p className="text-[11px] text-zinc-600 leading-relaxed">
-          First time? Run the SQL snippet from the README in your Supabase SQL Editor once to create
-          the <span className="font-mono">masterprompts_prompts</span> table and thumbnails bucket.
-        </p>
       </div>
     </div>
   );
 }
 
-function DetailModal({ item, copies, copied, onCopy, onClose, onDelete }: {
-  item: PromptItem; copies: number; copied: boolean;
-  onCopy: () => void; onClose: () => void; onDelete: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="relative">
-          <Thumb item={item} big />
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-xl bg-black/60 text-white hover:bg-black/80"><X size={18} /></button>
-        </div>
-        <div className="p-6 md:p-8 space-y-6">
-          <div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              <span className="px-3 py-1 rounded-full bg-violet-400/10 border border-violet-400/30 text-violet-300 text-[11px] font-bold">{item.model}</span>
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[11px]">{item.category}</span>
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[11px] flex items-center gap-1"><Copy size={11} /> {copies} copies</span>
-            </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">{item.title}</h2>
-          </div>
-
-          <div>
-            <p className={labelCls}>Prompt</p>
-            <div className="mt-2 bg-black/40 border border-white/10 rounded-2xl p-5 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-              {item.prompt}
-            </div>
-            <button onClick={onCopy}
-              className={`mt-3 w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${copied ? 'bg-emerald-500 text-black' : 'bg-gradient-to-r from-violet-400 to-fuchsia-500 text-black hover:brightness-110'}`}>
-              {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy prompt</>}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
-              <p className={labelCls}>Duration</p>
-              <p className="text-white font-bold mt-1 flex items-center gap-2"><Clock size={14} className="text-violet-300" /> {item.duration}</p>
-            </div>
-            <div className="bg-black/40 border border-white/10 rounded-2xl p-4">
-              <p className={labelCls}>Aspect ratio</p>
-              <p className="text-white font-bold mt-1 flex items-center gap-2"><Layers size={14} className="text-violet-300" /> {item.aspectRatio}</p>
-            </div>
-          </div>
-
-          {item.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {item.tags.map((t) => (
-                <span key={t} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-zinc-400">#{t}</span>
-              ))}
-            </div>
-          )}
-
-          {item.mine && (
-            <button onClick={onDelete} className="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 font-bold">
-              <Trash2 size={14} /> Delete this prompt
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ── Upload ── */
 
 function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const [ptype, setPtype] = useState<'video' | 'image'>('video');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
@@ -498,6 +1030,16 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const dbOn = !!getDb();
+
+  const models = ptype === 'video' ? MODELS : IMAGE_MODELS;
+  const durationOpts = ptype === 'video'
+    ? ['5s', '8s', '10s', '12s', '15s', '30s']
+    : ['1024×1024', '1344×768', '768×1344', '1920×1080'];
+
+  useEffect(() => {
+    setModel(ptype === 'video' ? MODELS[0] : IMAGE_MODELS[0]);
+    setDuration(ptype === 'video' ? '10s' : '1024×1024');
+  }, [ptype]);
 
   const handleImage = (f: File | undefined) => {
     if (!f) return;
@@ -525,35 +1067,18 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
     try {
       const tagsArr = tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
       if (getDb()) {
-        // Database mode: upload thumbnail to storage, insert row
         let imageUrl: string | undefined;
-        if (imageFile) {
-          imageUrl = await uploadThumb(imageFile);
-        }
+        if (imageFile) imageUrl = await uploadThumb(imageFile);
         await insertDbPrompt({
-          title: title.trim(),
-          prompt: prompt.trim(),
-          category,
-          model,
-          duration,
-          aspectRatio,
-          tags: tagsArr,
-          image: imageUrl,
+          title: title.trim(), prompt: prompt.trim(), category, model,
+          duration, aspectRatio, tags: tagsArr, type: ptype, image: imageUrl,
         });
       } else {
-        // Local mode
         addUserPrompt({
           id: `user-${Date.now()}`,
-          title: title.trim(),
-          prompt: prompt.trim(),
-          category,
-          model,
-          duration,
-          aspectRatio,
-          tags: tagsArr,
-          image,
-          createdAt: new Date().toISOString(),
-          mine: true,
+          title: title.trim(), prompt: prompt.trim(), category, model,
+          duration, aspectRatio, tags: tagsArr, type: ptype, image,
+          createdAt: new Date().toISOString(), mine: true,
         });
       }
       onSaved();
@@ -565,21 +1090,32 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
 
   return (
     <main className="max-w-2xl mx-auto px-4 md:px-8 py-10">
-      <button onClick={onBack} className="text-xs font-bold text-zinc-500 hover:text-white mb-6">← Back to gallery</button>
-      <h2 className="text-3xl font-black text-white tracking-tight mb-2">Upload a prompt</h2>
-      <p className="text-sm text-zinc-500 mb-8">Save your own video prompts to your personal vault. Stored in your browser.</p>
+      <button onClick={onBack} className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-amber-300 mb-6">
+        <ArrowLeft size={14} /> Back to browse
+      </button>
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">Contribute</p>
+      <h2 className="font-display text-3xl md:text-4xl font-black text-white tracking-tight mb-2">Upload a prompt</h2>
+      <p className="text-sm text-zinc-500 mb-8">Share your own {ptype} prompts with the vault. {dbOn ? 'Synced to your database.' : 'Stored in this browser.'}</p>
 
-      <div className="space-y-5 bg-white/[0.03] border border-white/10 rounded-3xl p-6 md:p-8">
+      <div className="space-y-5 bg-white/[0.03] border border-amber-400/15 rounded-3xl p-6 md:p-8">
+        <div className="flex gap-2">
+          {(['video', 'image'] as const).map((t) => (
+            <button key={t} onClick={() => setPtype(t)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all ${ptype === t ? 'bg-gradient-to-r from-amber-200 to-amber-500 text-black border-transparent' : 'border-white/10 text-zinc-400 hover:text-white'}`}>
+              {t === 'video' ? <Film size={14} /> : <ImageIcon size={14} />} {t}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-1.5">
           <label className={labelCls}>Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Neon Samurai Duel"
-            className={inputCls} />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Neon Samurai Duel" className={inputCls} />
         </div>
 
         <div className="space-y-1.5">
           <label className={labelCls}>Prompt</label>
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6}
-            placeholder="Describe the video in detail — subject, motion, camera, lighting, style…"
+            placeholder={ptype === 'video' ? 'Describe the video — subject, motion, camera, lighting, style…' : 'Describe the image — subject, composition, lighting, style…'}
             className={`${inputCls} resize-none`} />
         </div>
 
@@ -593,13 +1129,13 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
           <div className="space-y-1.5">
             <label className={labelCls}>AI Model</label>
             <select value={model} onChange={(e) => setModel(e.target.value)} className={`${inputCls} appearance-none`}>
-              {MODELS.map((m) => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+              {models.map((m) => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelCls}>Duration</label>
+            <label className={labelCls}>{ptype === 'video' ? 'Duration' : 'Dimensions'}</label>
             <select value={duration} onChange={(e) => setDuration(e.target.value)} className={`${inputCls} appearance-none`}>
-              {['5s', '8s', '10s', '12s', '15s', '30s'].map((d) => <option key={d} value={d} className="bg-zinc-900">{d}</option>)}
+              {durationOpts.map((d) => <option key={d} value={d} className="bg-zinc-900">{d}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -612,13 +1148,12 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
 
         <div className="space-y-1.5">
           <label className={labelCls}>Tags (comma separated)</label>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="cinematic, night, viral"
-            className={inputCls} />
+          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="cinematic, night, viral" className={inputCls} />
         </div>
 
         <div className="space-y-1.5">
           <label className={labelCls}>Thumbnail image (optional)</label>
-          <label className="flex items-center justify-center gap-3 border-2 border-dashed border-white/15 rounded-2xl p-8 cursor-pointer hover:border-violet-400/50 transition-colors">
+          <label className="flex items-center justify-center gap-3 border-2 border-dashed border-white/15 rounded-2xl p-8 cursor-pointer hover:border-amber-400/50 transition-colors">
             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImage(e.target.files?.[0])} />
             {image ? (
               <img src={image} alt="preview" className="max-h-40 rounded-xl" />
@@ -635,16 +1170,10 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
           )}
         </div>
 
-        {!dbOn && (
-          <p className="text-[11px] text-zinc-600 leading-relaxed">
-            Saving to this browser only. Connect a database in Settings (gear icon) to sync across devices.
-          </p>
-        )}
-
         {error && <p className="text-xs text-red-400 font-bold">{error}</p>}
 
         <button onClick={save} disabled={saving}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-violet-400 to-fuchsia-500 text-black font-black uppercase tracking-widest text-sm hover:brightness-110 transition-all disabled:opacity-50">
+          className={`w-full py-4 rounded-2xl text-sm uppercase tracking-widest disabled:opacity-50 ${goldBtn}`}>
           {saving ? 'Saving…' : 'Save to my vault →'}
         </button>
       </div>

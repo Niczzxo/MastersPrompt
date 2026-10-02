@@ -7,9 +7,13 @@ export interface PromptItem {
   duration: string;
   aspectRatio: string;
   tags: string[];
+  /** 'video' is the default when absent */
+  type?: 'video' | 'image';
+  featured?: boolean;
   image?: string;
   createdAt: string;
   mine?: boolean;
+  copies?: number;
 }
 
 export const CATEGORIES = [
@@ -33,6 +37,28 @@ export const MODELS = [
   'Pika',
   'Hailuo',
 ] as const;
+
+export const IMAGE_MODELS = [
+  'Seedream 4.0',
+  'Midjourney v7',
+  'Flux Pro',
+  'GPT Image 1',
+  'Imagen 4',
+] as const;
+
+export const ALL_MODELS = [...MODELS, ...IMAGE_MODELS] as const;
+
+/** Curated staff picks shown on the home page */
+export const FEATURED_IDS = [
+  'seed-cine-1',
+  'seed-viral-1',
+  'seed-anime-1',
+  'seed-scifi-1',
+  'seed-product-1',
+  'seed-nature-1',
+  'seed-img-5',
+  'seed-travel-1',
+];
 
 export const CATEGORY_STYLES: Record<string, { gradient: string; icon: string }> = {
   Cinematic: { gradient: 'from-amber-500 via-orange-600 to-rose-700', icon: '🎬' },
@@ -348,4 +374,110 @@ export const seedPrompts: PromptItem[] = [
     tags: ['travel', 'market', 'aerial', 'asia'],
     createdAt: d(17),
   },
+  // ── Image prompts ──
+  {
+    id: 'seed-img-1',
+    title: 'Fallen Empire Throne Room',
+    prompt:
+      'Vast abandoned throne room of a fallen empire, shafts of dusty light through a shattered dome, vines reclaiming marble columns, a cracked golden throne covered in moss. Epic scale, hyper-detailed digital painting, cinematic lighting, 8k, moody atmosphere, intricate architecture.',
+    category: 'Cinematic',
+    model: 'Flux Pro',
+    duration: '1344×768',
+    aspectRatio: '16:9',
+    tags: ['image', 'throne', 'ruins', 'epic'],
+    type: 'image',
+    createdAt: d(2),
+  },
+  {
+    id: 'seed-img-2',
+    title: 'Neon Geisha Portrait',
+    prompt:
+      'Striking portrait of a geisha with holographic neon face paint, rain droplets on skin, Tokyo neon signs bokeh behind, cyberpunk elegance. Ultra-detailed skin texture, dramatic rim light in cyan and magenta, 85mm photography look, editorial fashion aesthetic.',
+    category: 'Portrait',
+    model: 'Midjourney v7',
+    duration: '1024×1024',
+    aspectRatio: '1:1',
+    tags: ['image', 'portrait', 'cyberpunk', 'neon'],
+    type: 'image',
+    createdAt: d(3),
+  },
+  {
+    id: 'seed-img-3',
+    title: 'Watch Macro: Time Frozen',
+    prompt:
+      'Extreme macro of a luxury chronograph watch face, water droplet suspended mid-air above the glass, gears visible through skeleton dial, dramatic studio lighting on black background. Advertising photography, tack-sharp detail, reflections, premium commercial style.',
+    category: 'Product',
+    model: 'GPT Image 1',
+    duration: '1024×1024',
+    aspectRatio: '1:1',
+    tags: ['image', 'product', 'watch', 'macro'],
+    type: 'image',
+    createdAt: d(4),
+  },
+  {
+    id: 'seed-img-4',
+    title: 'Misty Fjord Sunrise',
+    prompt:
+      'Norwegian fjord at sunrise, layers of mist drifting between pine-covered cliffs, mirror-calm water reflecting pink and gold sky, a lone red cabin on the shore. Landscape photography, long exposure feel, serene, ultra high detail, national geographic quality.',
+    category: 'Nature',
+    model: 'Imagen 4',
+    duration: '1920×1080',
+    aspectRatio: '16:9',
+    tags: ['image', 'landscape', 'fjord', 'sunrise'],
+    type: 'image',
+    createdAt: d(5),
+  },
+  {
+    id: 'seed-img-5',
+    title: 'Spirit Train Across the Sky',
+    prompt:
+      'A vintage steam train gliding across railway tracks woven through glowing clouds at dusk, spirit lanterns floating alongside, distant floating islands. Ghibli-inspired painterly anime illustration, dreamy purples and golds, sense of wonder, highly detailed.',
+    category: 'Anime',
+    model: 'Seedream 4.0',
+    duration: '1344×768',
+    aspectRatio: '16:9',
+    tags: ['image', 'anime', 'train', 'fantasy'],
+    type: 'image',
+    createdAt: d(1),
+  },
+  {
+    id: 'seed-img-6',
+    title: 'Derelict Space Station',
+    prompt:
+      'Interior of a derelict space station, torn solar panels visible through a breached hull, floating debris and frozen vapor, Earth glowing through the rupture. Hard sci-fi concept art, cold blue palette with emergency orange accents, immense detail, cinematic composition.',
+    category: 'Sci-Fi',
+    model: 'Flux Pro',
+    duration: '1920×1080',
+    aspectRatio: '16:9',
+    tags: ['image', 'scifi', 'space', 'concept-art'],
+    type: 'image',
+    createdAt: d(6),
+  },
+  {
+    id: 'seed-img-7',
+    title: 'Santorini Blue Hour',
+    prompt:
+      'Santorini caldera at blue hour, whitewashed houses cascading down cliffs, iconic blue domes glowing warm from within, deep indigo sea below, first stars appearing. Travel photography, perfect symmetry, rich colors, postcard-perfect but real.',
+    category: 'Travel',
+    model: 'Imagen 4',
+    duration: '768×1344',
+    aspectRatio: '9:16',
+    tags: ['image', 'travel', 'santorini', 'blue-hour'],
+    type: 'image',
+    createdAt: d(7),
+  },
+  {
+    id: 'seed-img-8',
+    title: 'Tiny Astronaut, Giant Donut',
+    prompt:
+      'A tiny astronaut in a white spacesuit planting a flag on top of a gigantic pink frosted donut floating in space, sprinkles drifting like stars, Earth in the background. Whimsical surrealism, vibrant colors, playful, ultra-detailed, meme-worthy.',
+    category: 'Viral',
+    model: 'GPT Image 1',
+    duration: '1024×1024',
+    aspectRatio: '1:1',
+    tags: ['image', 'viral', 'surreal', 'funny'],
+    type: 'image',
+    createdAt: d(8),
+  },
+
 ];
