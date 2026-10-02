@@ -56,12 +56,21 @@ function Thumb({ item, big }: { item: PromptItem; big?: boolean }) {
         className={`w-full object-cover ${big ? 'aspect-video' : 'aspect-video'} bg-black`} />
     );
   }
+  const initial = item.category.charAt(0);
   return (
-    <div className={`w-full aspect-video bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2 relative overflow-hidden`}>
-      <div className="absolute inset-0 opacity-20"
-        style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, white 0%, transparent 40%), radial-gradient(circle at 70% 80%, black 0%, transparent 50%)' }} />
-      <span className={`${big ? 'text-7xl' : 'text-5xl'} relative`}>{style.icon}</span>
-      <span className="relative text-[10px] font-black uppercase tracking-[0.3em] text-white/70">{item.category}</span>
+    <div className="w-full aspect-video relative overflow-hidden bg-[#0d0b09]">
+      <div className={`absolute inset-0 bg-gradient-to-br ${style.gradient} opacity-50`} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/45" />
+      <div className="absolute inset-0 opacity-40"
+        style={{ background: 'radial-gradient(ellipse at 50% 115%, rgba(212,175,55,0.55), transparent 62%)' }} />
+      <div className="absolute inset-0 opacity-[0.07]"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")` }} />
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={`font-display font-black text-amber-100/90 leading-none ${big ? 'text-7xl' : 'text-6xl'}`}
+          style={{ textShadow: '0 2px 30px rgba(212,175,55,0.45)' }}>{initial}</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-200/70 mt-3">{item.category}</span>
+      </div>
+      <div className="absolute inset-0 rounded-none border border-amber-200/10 pointer-events-none" />
     </div>
   );
 }
@@ -81,7 +90,7 @@ function PromptCard({ p, copies, saved, copied, onOpen, onCopy, onToggleSave }: 
 }) {
   return (
     <article
-      className="break-inside-avoid mb-5 bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-amber-400/40 hover:-translate-y-1 transition-all cursor-pointer group"
+      className="break-inside-avoid mb-5 bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-amber-400/40 hover:-translate-y-1 hover:shadow-[0_12px_45px_rgba(212,175,55,0.14)] transition-all cursor-pointer group"
       onClick={onOpen}>
       <div className="relative">
         <Thumb item={p} />
@@ -274,7 +283,7 @@ export default function App() {
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.35)]">
               <Crown className="text-black" size={20} />
             </div>
-            <div className="text-left hidden xs:block sm:block">
+            <div className="text-left hidden sm:block">
               <h1 className="font-display font-black text-lg tracking-tight text-white leading-none">MasterPrompts</h1>
               <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
@@ -424,7 +433,7 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-25 blur-[120px]"
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-40 blur-[120px]"
             style={{ background: 'radial-gradient(circle, #d4af37 0%, transparent 70%)' }} />
         </div>
         <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-12 text-center">
@@ -490,7 +499,7 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
               <button key={c} onClick={() => onCategory(c)}
                 className={`relative overflow-hidden rounded-3xl p-6 text-left bg-gradient-to-br ${style.gradient} hover:scale-[1.02] transition-transform group`}>
                 <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition-colors" />
-                <span className="relative text-3xl">{style.icon}</span>
+                <span className="relative font-display font-black text-4xl text-white/90" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>{c.charAt(0)}</span>
                 <p className="relative font-display font-black text-white text-lg mt-3">{c}</p>
                 <p className="relative text-[11px] text-white/70 font-bold uppercase tracking-widest mt-1">{count} prompts</p>
               </button>
@@ -558,7 +567,7 @@ function BrowseView({ items, query, setQuery, category, setCategory, model, setM
       </section>
 
       {/* Type toggle */}
-      <section className="flex items-center gap-2 mb-5">
+      <section className="flex flex-wrap items-center gap-2 mb-5">
         {([
           { k: 'all', label: 'All', Icon: LayoutGrid },
           { k: 'video', label: 'Video', Icon: Film },
@@ -830,7 +839,7 @@ function CollectionsView({ items, onOpen }: { items: PromptItem[]; onOpen: (id: 
             <button key={c.id} onClick={() => onOpen(c.id)}
               className={`relative overflow-hidden rounded-[2rem] p-8 text-left bg-gradient-to-br ${c.gradient} hover:scale-[1.02] transition-transform group min-h-[240px] flex flex-col justify-end`}>
               <div className="absolute inset-0 bg-black/30 group-hover:bg-black/15 transition-colors" />
-              <span className="absolute top-6 right-6 text-5xl animate-float-slow">{c.icon}</span>
+              <span className="absolute top-6 right-8 font-display font-black text-6xl text-white/25 animate-float-slow select-none">{c.title.charAt(0)}</span>
               <div className="relative">
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70 mb-2">{count} prompts</p>
                 <h3 className="font-display text-2xl font-black text-white mb-2">{c.title}</h3>
@@ -857,7 +866,7 @@ function CollectionDetailView({ collection, items, cardProps, onBack }: {
       </button>
       <div className={`relative overflow-hidden rounded-[2rem] p-8 md:p-12 bg-gradient-to-br ${collection.gradient} mb-10`}>
         <div className="absolute inset-0 bg-black/30" />
-        <span className="absolute top-8 right-8 text-7xl animate-float-slow">{collection.icon}</span>
+        <span className="absolute top-6 right-8 font-display font-black text-8xl text-white/20 select-none">{collection.title.charAt(0)}</span>
         <div className="relative max-w-2xl">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/70 mb-2">{items.length} prompts</p>
           <h2 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight mb-3">{collection.title}</h2>
