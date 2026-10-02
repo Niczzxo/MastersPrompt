@@ -11,11 +11,11 @@ import {
 } from './data/prompts';
 import { COLLECTIONS, promptsInCollection, type Collection } from './data/collections';
 import {
-  getAllPrompts, addUserPrompt, deleteUserPrompt, bumpCopies,
+  getAllPrompts, deleteUserPrompt, bumpCopies,
 } from './lib/store';
 import {
-  getDbConfig, getDb, fetchDbPrompts, insertDbPrompt,
-  deleteDbPrompt, incrementDbCopies, uploadThumb,
+  getDbConfig, getDb, fetchDbPrompts,
+  incrementDbCopies,
 } from './lib/db';
 
 type Route = { view: 'home' | 'browse' | 'detail' | 'collections' | 'collection' | 'saved' | 'upload'; id?: string };
@@ -23,6 +23,22 @@ type SortKey = 'newest' | 'oldest' | 'title';
 type TypeFilter = 'all' | 'video' | 'image';
 
 const SAVED_KEY = 'masterprompts-saved';
+const ADMIN_TOKEN_KEY = 'masterprompts-admin-token';
+
+const isAdmin = () => {
+  try { return !!sessionStorage.getItem(ADMIN_TOKEN_KEY); } catch { return false; }
+};
+
+async function apiPost(path: string, body: any) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
 
 const inputCls =
   'w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-400/70 placeholder:text-zinc-600';
@@ -145,12 +161,23 @@ export default function App() {
   const [mineOnly, setMineOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<string[]>(loadSaved);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const [dbOn, setDbOn] = useState(() => !!getDbConfig());
   const [dbNotice, setDbNotice] = useState('');
 
   const go = (view: Route['view'], id?: string) => {
     setRoute({ view, id });
     window.scrollTo({ top: 0 });
+  };
+
+  const goUpload = () => {
+    if (isAdmin()) go('upload');
+    else setShowLogin(true);
+  };
+
+  const logoutAdmin = () => {
+    try { sessionStorage.removeItem(ADMIN_TOKEN_KEY); } catch { /* ignore */ }
+    go('browse');
   };
 
   useEffect(() => {
@@ -169,14 +196,6 @@ export default function App() {
       })
       .catch((e) => setDbNotice('Database error: ' + (e.message || 'could not load')));
   }, []);
-
-  const refresh = () => {
-    const all = getAllPrompts();
-    setItems(all);
-    const m: Record<string, number> = {};
-    all.forEach((p) => { m[p.id] = p.copies || 0; });
-    setCopiesMap(m);
-  };
 
   const copyPrompt = async (p: PromptItem) => {
     try {
@@ -210,8 +229,16 @@ export default function App() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this prompt?')) return;
     try {
-      if (id.startsWith('db-') && getDb()) await deleteDbPrompt(id);
-      else deleteUserPrompt(id);
+      if (id.startsWith('db-')) {
+        const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+        if (!token) {
+          alert('Admin login required.');
+          return;
+        }
+        await apiPost('/api/delete', { token, id });
+      } else {
+        deleteUserPrompt(id);
+      }
     } catch (e: any) {
       alert('Delete failed: ' + (e.message || 'unknown error'));
       return;
@@ -301,11 +328,11 @@ export default function App() {
               placeholder="Search prompts…"
               className="w-full bg-black/40 border border-white/10 rounded-full pl-10 pr-4 py-2.5 text-sm outline-none focus:border-amber-400/70 placeholder:text-zinc-600" />
           </div>
-          <span title={dbOn ? 'Database connected' : 'Local storage mode — connect DB in Settings'}
+          <span title={dbOn ? 'Database connected' : 'Local mode'}
             className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border ${dbOn ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-white/10 text-zinc-500 bg-white/5'}`}>
             <Database size={11} /> {dbOn ? 'DB' : 'Local'}
           </span>
-          <button onClick={() => go('upload')}
+          <button onClick={goUpload}
             className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-full text-xs uppercase tracking-widest ${goldBtn}`}>
             <Plus size={15} /> Upload
           </button>
@@ -315,7 +342,7 @@ export default function App() {
           {navBtn('browse', 'Browse', LayoutGrid)}
           {navBtn('collections', 'Collections', FolderOpen)}
           {navBtn('saved', 'Saved', Bookmark)}
-          <button onClick={() => go('upload')}
+          <button onClick={goUpload}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold ${goldBtn}`}>
             <Plus size={13} /> Upload
           </button>
@@ -332,7 +359,7 @@ export default function App() {
         <HomeView items={items} copiesMap={copiesMap} cardProps={cardProps}
           onSearch={(q) => { setQuery(q); go('browse'); }}
           onCategory={(c) => { setCategory(c); setQuery(''); go('browse'); }}
-          onUpload={() => go('upload')} />
+          onUpload={goUpload} />
       )}
       {route.view === 'browse' && (
         <BrowseView items={filtered} query={query} setQuery={setQuery}
@@ -366,7 +393,23 @@ export default function App() {
         <SavedView items={savedItems} cardProps={cardProps} onBrowse={() => go('browse')} />
       )}
       {route.view === 'upload' && (
-        <UploadView onBack={() => go('browse')} onSaved={() => { setMineOnly(true); refresh(); go('browse'); }} />
+        <UploadView onBack={() => go('browse')}
+          onSaved={(newItem) => {
+            if (newItem) {
+              setItems((prev) => [newItem, ...prev]);
+              setCopiesMap((m) => ({ ...m, [newItem.id]: 0 }));
+            }
+            setMineOnly(true);
+            go('browse');
+          }}
+          onLogout={logoutAdmin} />
+      )}
+
+      {showLogin && (
+        <AdminLoginModal
+          onClose={() => setShowLogin(false)}
+          onSuccess={() => { setShowLogin(false); go('upload'); }}
+        />
       )}
 
       {/* Footer */}
@@ -390,7 +433,7 @@ export default function App() {
               <button onClick={() => go('browse')} className="block text-zinc-400 hover:text-amber-300">Browse prompts</button>
               <button onClick={() => go('collections')} className="block text-zinc-400 hover:text-amber-300">Collections</button>
               <button onClick={() => go('saved')} className="block text-zinc-400 hover:text-amber-300">Saved prompts</button>
-              <button onClick={() => go('upload')} className="block text-zinc-400 hover:text-amber-300">Upload a prompt</button>
+              <button onClick={goUpload} className="block text-zinc-400 hover:text-amber-300">Upload a prompt</button>
             </div>
           </div>
           <div>
@@ -918,9 +961,60 @@ function SavedView({ items, cardProps, onBrowse }: {
   );
 }
 
+/* ── Admin login ── */
+
+function AdminLoginModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!password) return;
+    setBusy(true);
+    setError('');
+    try {
+      const data = await apiPost('/api/admin-login', { password });
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <form onSubmit={submit}
+        className="w-full max-w-sm bg-zinc-900 border border-amber-400/20 rounded-3xl p-6 md:p-8 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center mb-4">
+            <Crown className="text-black" size={24} />
+          </div>
+          <h3 className="font-display font-black text-xl text-white">Admin access</h3>
+          <p className="text-xs text-zinc-500 mt-1">Only the site owner can upload prompts.</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className={labelCls}>Admin password</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter admin password" autoFocus className={inputCls} />
+        </div>
+        {error && <p className="text-xs text-red-400 font-bold text-center">{error}</p>}
+        <button type="submit" disabled={busy}
+          className={`w-full py-3.5 rounded-2xl text-sm uppercase tracking-widest disabled:opacity-50 ${goldBtn}`}>
+          {busy ? 'Checking…' : 'Unlock upload →'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 /* ── Upload ── */
 
-function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+function UploadView({ onBack, onSaved, onLogout }: {
+  onBack: () => void; onSaved: (newItem?: PromptItem) => void; onLogout: () => void;
+}) {
   const [ptype, setPtype] = useState<'video' | 'image'>('video');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -933,7 +1027,6 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
   const [imageFile, setImageFile] = useState<File | undefined>(undefined);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const dbOn = !!getDb();
 
   const models = ptype === 'video' ? MODELS : IMAGE_MODELS;
   const durationOpts = ptype === 'video'
@@ -947,10 +1040,6 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
 
   const handleImage = (f: File | undefined) => {
     if (!f) return;
-    if (f.size > 1.5 * 1024 * 1024 && !getDb()) {
-      setError('Image must be under 1.5MB (browser storage limit).');
-      return;
-    }
     if (f.size > 8 * 1024 * 1024) {
       setError('Image must be under 8MB.');
       return;
@@ -966,26 +1055,31 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
       setError('Title and prompt text are required.');
       return;
     }
+    const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) {
+      setError('Admin session expired — please log in again.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       const tagsArr = tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
-      if (getDb()) {
-        let imageUrl: string | undefined;
-        if (imageFile) imageUrl = await uploadThumb(imageFile);
-        await insertDbPrompt({
-          title: title.trim(), prompt: prompt.trim(), category, model,
-          duration, aspectRatio, tags: tagsArr, type: ptype, image: imageUrl,
-        });
-      } else {
-        addUserPrompt({
-          id: `user-${Date.now()}`,
-          title: title.trim(), prompt: prompt.trim(), category, model,
-          duration, aspectRatio, tags: tagsArr, type: ptype, image,
-          createdAt: new Date().toISOString(), mine: true,
-        });
-      }
-      onSaved();
+      const data = await apiPost('/api/upload', {
+        token,
+        prompt: {
+          title: title.trim(),
+          prompt: prompt.trim(),
+          category,
+          model,
+          duration,
+          aspectRatio,
+          tags: tagsArr,
+          type: ptype,
+        },
+        imageBase64: image || undefined,
+        imageType: imageFile?.type || undefined,
+      });
+      onSaved(data.item);
     } catch (e: any) {
       setError('Save failed: ' + (e.message || 'unknown error'));
       setSaving(false);
@@ -994,12 +1088,17 @@ function UploadView({ onBack, onSaved }: { onBack: () => void; onSaved: () => vo
 
   return (
     <main className="max-w-2xl mx-auto px-4 md:px-8 py-10">
-      <button onClick={onBack} className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-amber-300 mb-6">
-        <ArrowLeft size={14} /> Back to browse
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-amber-300">
+          <ArrowLeft size={14} /> Back to browse
+        </button>
+        <button onClick={onLogout} className="text-[11px] font-bold text-zinc-600 hover:text-amber-300 uppercase tracking-widest">
+          Admin ✓ · Logout
+        </button>
+      </div>
       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">Contribute</p>
       <h2 className="font-display text-3xl md:text-4xl font-black text-white tracking-tight mb-2">Upload a prompt</h2>
-      <p className="text-sm text-zinc-500 mb-8">Share your own {ptype} prompts with the vault. {dbOn ? 'Synced to your database.' : 'Stored in this browser.'}</p>
+      <p className="text-sm text-zinc-500 mb-8">Share your own {ptype} prompts with the vault. Published straight to the live database.</p>
 
       <div className="space-y-5 bg-white/[0.03] border border-amber-400/15 rounded-3xl p-6 md:p-8">
         <div className="flex gap-2">
