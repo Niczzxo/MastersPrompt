@@ -382,6 +382,17 @@ export default function App() {
   const desktopPill = useSlidingPill(activeTab);
   const mobilePill = useSlidingPill(activeTab);
 
+  const mobileTab = (t: { id: string; label: string; Icon: any }) => {
+    const isActive = activeTab === t.id;
+    return (
+      <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
+        className="btn-press relative z-10 flex flex-col items-center gap-1 w-14 py-1.5 rounded-2xl">
+        <t.Icon size={22} className={`${isActive ? 'text-amber-300 animate-tab-pop drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]' : 'text-zinc-500'} transition-colors duration-300`} />
+        <span className={`text-[10px] font-bold transition-colors duration-300 ${isActive ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0908] text-zinc-200">
       {/* Header */}
@@ -391,7 +402,7 @@ export default function App() {
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.35)]">
               <Crown className="text-black" size={20} />
             </div>
-            <div className="text-left hidden sm:block">
+            <div className="text-left">
               <h1 className="font-display font-black text-lg tracking-tight text-white leading-none">MastersPrompt</h1>
               <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
@@ -430,28 +441,21 @@ export default function App() {
       {/* Mobile bottom tab bar — Upload FAB raised in the center */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="rounded-[1.75rem] bg-[#14120e]/95 backdrop-blur-xl border border-amber-400/15 shadow-[0_-10px_50px_rgba(0,0,0,0.65),0_0_30px_rgba(212,175,55,0.07)]">
-          <div ref={mobilePill.containerRef} className="relative flex items-center justify-around px-2 py-2">
+          <div ref={mobilePill.containerRef} className="relative flex items-center justify-around px-2 pt-2.5 pb-2">
+            {/* sliding top glow indicator — glides to the active tab */}
             <div aria-hidden
-              className="absolute left-0 top-2 bottom-2 rounded-2xl bg-amber-400/15 border border-amber-400/40 shadow-[0_0_18px_rgba(212,175,55,0.25)]"
-              style={{ transform: `translateX(${mobilePill.pill.x}px)`, width: mobilePill.pill.w, opacity: mobilePill.pill.show ? 1 : 0, transition: PILL_TRANSITION }} />
-            {mainTabs.slice(0, 2).map((t) => (
-              <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
-                className="relative z-10 flex flex-col items-center gap-1 w-14 py-1.5 rounded-2xl">
-                <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
-                <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
-              </button>
-            ))}
+              className="absolute left-0 top-0 h-[3px] w-7 rounded-full bg-gradient-to-r from-amber-200 to-amber-500 shadow-[0_0_12px_rgba(212,175,55,0.9)]"
+              style={{
+                transform: `translateX(${mobilePill.pill.x + mobilePill.pill.w / 2 - 14}px)`,
+                opacity: mobilePill.pill.show ? 1 : 0,
+                transition: PILL_TRANSITION,
+              }} />
+            {mainTabs.slice(0, 2).map(mobileTab)}
             <button onClick={goUpload} aria-label="Upload prompt"
               className="btn-press relative z-10 -translate-y-4 w-14 h-14 shrink-0 rounded-full bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center text-black shadow-[0_8px_30px_rgba(212,175,55,0.55)] border-2 border-amber-200/40">
               <Plus size={26} strokeWidth={2.5} />
             </button>
-            {mainTabs.slice(2).map((t) => (
-              <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
-                className="relative z-10 flex flex-col items-center gap-1 w-14 py-1.5 rounded-2xl">
-                <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
-                <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
-              </button>
-            ))}
+            {mainTabs.slice(2).map(mobileTab)}
           </div>
         </div>
       </nav>
