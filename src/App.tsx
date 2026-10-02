@@ -3,7 +3,7 @@ import {
   Search, Plus, Copy, Check, Clock, Layers, Trash2, Upload,
   Image as ImageIcon, Sparkles, ChevronDown, Pencil,
   Database, Heart, Film, ArrowLeft, Crown, LayoutGrid,
-  Share2, Eye, Tag, Zap, Home, FolderOpen, Bookmark, Maximize2,
+  Share2, Eye, Tag, Zap, Home, Bookmark, Maximize2,
 } from 'lucide-react';
 import {
   CATEGORIES, MODELS, IMAGE_MODELS, ALL_MODELS, CATEGORY_STYLES,
@@ -186,6 +186,32 @@ function PromptCard({ p, copies, saved, copied, isAdmin, onOpen, onCopy, onToggl
   );
 }
 
+/* Sliding active-pill for navbars — the gold pill glides between tabs */
+function useSlidingPill(activeId: string) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState({ x: 0, w: 0, show: false });
+  useEffect(() => {
+    const update = () => {
+      const c = containerRef.current;
+      if (!c) return;
+      const btn = c.querySelector<HTMLElement>(`[data-tab="${activeId}"]`);
+      if (btn && btn.offsetWidth > 0) {
+        setPill({ x: btn.offsetLeft, w: btn.offsetWidth, show: true });
+      } else {
+        setPill((p) => ({ ...p, show: false }));
+      }
+    };
+    update();
+    const t1 = setTimeout(update, 120);
+    const t2 = setTimeout(update, 600);
+    window.addEventListener('resize', update);
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', update); };
+  }, [activeId]);
+  return { containerRef, pill };
+}
+
+const PILL_TRANSITION = 'transform 0.42s cubic-bezier(0.22,1,0.36,1), width 0.42s cubic-bezier(0.22,1,0.36,1), opacity 0.25s ease';
+
 export default function App() {
   const [items, setItems] = useState<PromptItem[]>(getAllPrompts);
   const [copiesMap, setCopiesMap] = useState<Record<string, number>>(() => {
@@ -341,12 +367,18 @@ export default function App() {
     onToggleSave: () => toggleSave(p.id),
   });
 
-  const navBtn = (view: Route['view'], label: string, Icon: any) => (
-    <button key={view} onClick={() => go(view)}
-      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-colors ${route.view === view || (view === 'browse' && route.view === 'detail') ? 'bg-amber-400/15 text-amber-200 border border-amber-400/40' : 'text-zinc-400 hover:text-white border border-transparent'}`}>
-      <Icon size={13} /> {label}
-    </button>
-  );
+  const mainTabs = [
+    { id: 'home', label: 'Home', Icon: Home },
+    { id: 'browse', label: 'Browse', Icon: LayoutGrid },
+    { id: 'saved', label: 'Saved', Icon: Bookmark },
+  ];
+  const activeTab =
+    route.view === 'home' ? 'home'
+    : route.view === 'browse' || route.view === 'detail' ? 'browse'
+    : route.view === 'saved' ? 'saved' : '';
+  const goTab = (id: string) => go(id as Route['view']);
+  const desktopPill = useSlidingPill(activeTab);
+  const mobilePill = useSlidingPill(activeTab);
 
   return (
     <div className="min-h-screen bg-[#0a0908] text-zinc-200">
@@ -362,11 +394,18 @@ export default function App() {
               <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
           </button>
-          <nav className="hidden lg:flex items-center gap-1 ml-4">
-            {navBtn('home', 'Home', Home)}
-            {navBtn('browse', 'Browse', LayoutGrid)}
-            {navBtn('collections', 'Collections', FolderOpen)}
-            {navBtn('saved', 'Saved', Bookmark)}
+          <nav className="hidden lg:block ml-4">
+            <div ref={desktopPill.containerRef} className="relative flex items-center gap-1">
+              <div aria-hidden
+                className="absolute left-0 top-0 bottom-0 rounded-full bg-amber-400/15 border border-amber-400/40 shadow-[0_0_18px_rgba(212,175,55,0.25)]"
+                style={{ transform: `translateX(${desktopPill.pill.x}px)`, width: desktopPill.pill.w, opacity: desktopPill.pill.show ? 1 : 0, transition: PILL_TRANSITION }} />
+              {mainTabs.map((t) => (
+                <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
+                  className={`relative z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-400 hover:text-white'}`}>
+                  <t.Icon size={13} /> {t.label}
+                </button>
+              ))}
+            </div>
           </nav>
           <div className="flex-1" />
           <div className="hidden md:flex relative w-64">
@@ -384,17 +423,36 @@ export default function App() {
             <Plus size={15} /> Upload
           </button>
         </div>
-        <nav className="lg:hidden flex items-center gap-1 px-4 pb-3 overflow-x-auto no-scrollbar">
-          {navBtn('home', 'Home', Home)}
-          {navBtn('browse', 'Browse', LayoutGrid)}
-          {navBtn('collections', 'Collections', FolderOpen)}
-          {navBtn('saved', 'Saved', Bookmark)}
-          <button onClick={goUpload}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold ${goldBtn}`}>
-            <Plus size={13} /> Upload
-          </button>
-        </nav>
       </header>
+
+      {/* Mobile bottom tab bar — Upload FAB raised in the center */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="rounded-[1.75rem] bg-[#14120e]/95 backdrop-blur-xl border border-amber-400/15 shadow-[0_-10px_50px_rgba(0,0,0,0.65),0_0_30px_rgba(212,175,55,0.07)]">
+          <div ref={mobilePill.containerRef} className="relative flex items-center justify-around px-2 py-2">
+            <div aria-hidden
+              className="absolute left-0 top-2 bottom-2 rounded-2xl bg-amber-400/15 border border-amber-400/40 shadow-[0_0_18px_rgba(212,175,55,0.25)]"
+              style={{ transform: `translateX(${mobilePill.pill.x}px)`, width: mobilePill.pill.w, opacity: mobilePill.pill.show ? 1 : 0, transition: PILL_TRANSITION }} />
+            {mainTabs.slice(0, 2).map((t) => (
+              <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
+                className="relative z-10 flex flex-col items-center gap-1 w-16 py-1.5 rounded-2xl">
+                <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
+                <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
+              </button>
+            ))}
+            <button onClick={goUpload} aria-label="Upload prompt"
+              className="btn-press relative z-10 -translate-y-4 w-14 h-14 shrink-0 rounded-full bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center text-black shadow-[0_8px_30px_rgba(212,175,55,0.55)] border-2 border-amber-200/40">
+              <Plus size={26} strokeWidth={2.5} />
+            </button>
+            {mainTabs.slice(2).map((t) => (
+              <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
+                className="relative z-10 flex flex-col items-center gap-1 w-16 py-1.5 rounded-2xl">
+                <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
+                <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
 
       {dbNotice && (
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-4">
@@ -468,6 +526,9 @@ export default function App() {
           onSuccess={() => { setShowLogin(false); go('upload'); }}
         />
       )}
+
+      {/* spacer so the mobile bottom bar never covers content */}
+      <div className="h-24 lg:hidden" />
 
       {/* Footer */}
       <footer className="border-t border-amber-400/10 mt-8">
