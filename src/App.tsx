@@ -3,7 +3,7 @@ import {
   Search, Plus, Copy, Check, Clock, Layers, Trash2, Upload,
   Image as ImageIcon, Sparkles, ChevronDown, Pencil,
   Database, Heart, Film, ArrowLeft, Crown, LayoutGrid,
-  Share2, Eye, Tag, Zap, Home, Bookmark, Maximize2,
+  Share2, Eye, Tag, Zap, Home, FolderOpen, Bookmark, Maximize2,
 } from 'lucide-react';
 import {
   CATEGORIES, MODELS, IMAGE_MODELS, ALL_MODELS, CATEGORY_STYLES,
@@ -370,11 +370,13 @@ export default function App() {
   const mainTabs = [
     { id: 'home', label: 'Home', Icon: Home },
     { id: 'browse', label: 'Browse', Icon: LayoutGrid },
+    { id: 'collections', label: 'Collections', Icon: FolderOpen },
     { id: 'saved', label: 'Saved', Icon: Bookmark },
   ];
   const activeTab =
     route.view === 'home' ? 'home'
     : route.view === 'browse' || route.view === 'detail' ? 'browse'
+    : route.view === 'collections' || route.view === 'collection' ? 'collections'
     : route.view === 'saved' ? 'saved' : '';
   const goTab = (id: string) => go(id as Route['view']);
   const desktopPill = useSlidingPill(activeTab);
@@ -434,7 +436,7 @@ export default function App() {
               style={{ transform: `translateX(${mobilePill.pill.x}px)`, width: mobilePill.pill.w, opacity: mobilePill.pill.show ? 1 : 0, transition: PILL_TRANSITION }} />
             {mainTabs.slice(0, 2).map((t) => (
               <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
-                className="relative z-10 flex flex-col items-center gap-1 w-16 py-1.5 rounded-2xl">
+                className="relative z-10 flex flex-col items-center gap-1 w-14 py-1.5 rounded-2xl">
                 <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
                 <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
               </button>
@@ -445,7 +447,7 @@ export default function App() {
             </button>
             {mainTabs.slice(2).map((t) => (
               <button key={t.id} data-tab={t.id} onClick={() => goTab(t.id)}
-                className="relative z-10 flex flex-col items-center gap-1 w-16 py-1.5 rounded-2xl">
+                className="relative z-10 flex flex-col items-center gap-1 w-14 py-1.5 rounded-2xl">
                 <t.Icon size={21} className={`transition-colors duration-300 ${activeTab === t.id ? 'text-amber-300' : 'text-zinc-500'}`} />
                 <span className={`text-[10px] font-bold transition-colors duration-300 ${activeTab === t.id ? 'text-amber-200' : 'text-zinc-500'}`}>{t.label}</span>
               </button>
