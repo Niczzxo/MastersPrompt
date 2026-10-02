@@ -730,11 +730,14 @@ function PhasesSection({ phases }: { phases: { title: string; text: string }[] }
               </button>
               {isOpen && (
                 <div className="px-5 pb-5 pt-1 border-t border-white/5">
-                  <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap mt-3">{ph.text}</p>
+                  <p className="mt-3 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Phase {String(i + 1).padStart(2, '0')} of {String(phases.length).padStart(2, '0')} — Prompt instruction
+                  </p>
                   <button onClick={() => copyPhase(ph.text, i)}
-                    className={`mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${copiedIdx === i ? 'bg-emerald-500 text-black' : goldBtn}`}>
-                    {copiedIdx === i ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy phase</>}
+                    className={`w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${copiedIdx === i ? 'bg-emerald-500 text-black' : 'bg-gradient-to-r from-amber-200 to-amber-500 text-black hover:brightness-110 shadow-[0_0_25px_rgba(212,175,55,0.25)]'}`}>
+                    {copiedIdx === i ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Phase {i + 1}</>}
                   </button>
+                  <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap mt-4">{ph.text}</p>
                 </div>
               )}
             </div>
