@@ -61,6 +61,15 @@ export default async function handler(req, res) {
         aspect_ratio: String(prompt.aspectRatio || '16:9'),
         tags: Array.isArray(prompt.tags) ? prompt.tags : [],
         type: prompt.type === 'image' ? 'image' : 'video',
+        phases: Array.isArray(prompt.phases)
+          ? prompt.phases
+              .filter((ph) => ph && (ph.title || ph.text))
+              .slice(0, 12)
+              .map((ph) => ({
+                title: String(ph.title || '').slice(0, 120),
+                text: String(ph.text || ''),
+              }))
+          : [],
         image_url,
         copies: 0,
       })
@@ -80,6 +89,7 @@ export default async function handler(req, res) {
         aspectRatio: r.aspect_ratio,
         tags: r.tags || [],
         type: r.type || 'video',
+        phases: Array.isArray(r.phases) ? r.phases : [],
         image: r.image_url || undefined,
         createdAt: r.created_at,
         mine: true,

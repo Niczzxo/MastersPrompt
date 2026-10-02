@@ -65,6 +65,7 @@ function rowToItem(r: any): PromptItem {
     aspectRatio: r.aspect_ratio,
     tags: r.tags || [],
     type: r.type || 'video',
+    phases: Array.isArray(r.phases) ? r.phases : [],
     image: r.image_url || undefined,
     createdAt: r.created_at,
     mine: true,

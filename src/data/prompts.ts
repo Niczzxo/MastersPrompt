@@ -10,6 +10,8 @@ export interface PromptItem {
   /** 'video' is the default when absent */
   type?: 'video' | 'image';
   featured?: boolean;
+  /** Workflow phases (multi-shot prompts) */
+  phases?: { title: string; text: string }[];
   image?: string;
   createdAt: string;
   mine?: boolean;

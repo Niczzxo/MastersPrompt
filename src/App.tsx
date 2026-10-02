@@ -676,6 +676,54 @@ function BrowseView({ items, query, setQuery, category, setCategory, model, setM
 
 /* ── Detail page ── */
 
+function PhasesSection({ phases }: { phases: { title: string; text: string }[] }) {
+  const [active, setActive] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  if (!phases || phases.length === 0) return null;
+
+  const copyPhase = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  const phase = phases[Math.min(active, phases.length - 1)];
+
+  return (
+    <section>
+      <p className={`${labelCls} mb-3 flex items-center gap-1.5`}>
+        <Layers size={11} className="text-amber-400" /> Workflow phases
+      </p>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {phases.map((ph, i) => (
+          <button key={i} onClick={() => { setActive(i); setCopied(false); }}
+            className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${i === active ? 'bg-gradient-to-r from-amber-200 to-amber-500 text-black border-transparent shadow-[0_0_20px_rgba(212,175,55,0.3)]' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'}`}>
+            {ph.title || `Phase ${i + 1}`}
+          </button>
+        ))}
+      </div>
+      <div className="bg-black/40 border border-amber-400/15 rounded-3xl p-6 md:p-8">
+        <p className="font-display text-lg font-black text-white mb-3">{phase.title || `Phase ${active + 1}`}</p>
+        <p className="text-[15px] text-zinc-200 leading-relaxed whitespace-pre-wrap">{phase.text}</p>
+        <button onClick={() => copyPhase(phase.text)}
+          className={`mt-5 flex items-center gap-2 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-black' : goldBtn}`}>
+          {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy phase</>}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function DetailView({ item, items, copies, saved, copied, shareCopied, onCopy, onToggleSave, onShare, onDelete, onOpen, onBack, onCategory, cardProps }: {
   item: PromptItem; items: PromptItem[]; copies: number;
   saved: boolean; copied: boolean; shareCopied: boolean;
@@ -737,6 +785,8 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, onCopy, o
               {item.prompt}
             </div>
           </section>
+
+          <PhasesSection phases={item.phases || []} />
 
           {/* Settings */}
           <section>
@@ -1025,6 +1075,7 @@ function UploadView({ onBack, onSaved, onLogout }: {
   const [duration, setDuration] = useState('10s');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [tags, setTags] = useState('');
+  const [phases, setPhases] = useState<{ title: string; text: string }[]>([]);
   const [image, setImage] = useState<string | undefined>(undefined);
   const [imageFile, setImageFile] = useState<File | undefined>(undefined);
   const [error, setError] = useState('');
@@ -1077,6 +1128,7 @@ function UploadView({ onBack, onSaved, onLogout }: {
           aspectRatio,
           tags: tagsArr,
           type: ptype,
+          phases: phases.filter((ph) => ph.title.trim() || ph.text.trim()),
         },
         imageBase64: image || undefined,
         imageType: imageFile?.type || undefined,
@@ -1122,6 +1174,34 @@ function UploadView({ onBack, onSaved, onLogout }: {
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6}
             placeholder={ptype === 'video' ? 'Describe the video — subject, motion, camera, lighting, style…' : 'Describe the image — subject, composition, lighting, style…'}
             className={`${inputCls} resize-none`} />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className={labelCls}>Workflow phases (optional)</label>
+            <button type="button" onClick={() => setPhases((p) => [...p, { title: '', text: '' }])}
+              className="text-[11px] font-black uppercase tracking-widest text-amber-300 hover:text-amber-200 flex items-center gap-1">
+              <Plus size={12} /> Add phase
+            </button>
+          </div>
+          {phases.map((ph, i) => (
+            <div key={i} className="bg-black/30 border border-white/10 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black font-black text-xs">{i + 1}</span>
+                <input value={ph.title} onChange={(e) => setPhases((p) => p.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
+                  placeholder={`Phase ${i + 1} title (e.g. The Hook)`} className={inputCls} />
+                <button type="button" onClick={() => setPhases((p) => p.filter((_, j) => j !== i))}
+                  className="p-2 text-zinc-500 hover:text-red-400 shrink-0" title="Remove phase">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <textarea value={ph.text} onChange={(e) => setPhases((p) => p.map((x, j) => j === i ? { ...x, text: e.target.value } : x))}
+                rows={4} placeholder="Full prompt text for this phase…" className={`${inputCls} resize-none`} />
+            </div>
+          ))}
+          {phases.length === 0 && (
+            <p className="text-[11px] text-zinc-600 leading-relaxed">Split a multi-shot video into phases — each phase gets its own tab with a copy button on the prompt page.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
