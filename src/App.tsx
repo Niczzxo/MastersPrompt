@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, Plus, Copy, Check, Clock, Layers, Trash2, Upload,
-  Image as ImageIcon, Sparkles, ChevronDown,
+  Image as ImageIcon, Sparkles, ChevronDown, Pencil,
   Database, Heart, Film, ArrowLeft, Crown, LayoutGrid,
   Share2, Eye, Tag, Zap, Home, FolderOpen, Bookmark, Maximize2,
 } from 'lucide-react';
@@ -100,8 +100,8 @@ function TypeBadge({ item }: { item: PromptItem }) {
   );
 }
 
-function PromptCard({ p, copies, saved, copied, onOpen, onCopy, onToggleSave }: {
-  p: PromptItem; copies: number; saved: boolean; copied: boolean;
+function PromptCard({ p, copies, saved, copied, isAdmin, onOpen, onCopy, onToggleSave }: {
+  p: PromptItem; copies: number; saved: boolean; copied: boolean; isAdmin: boolean;
   onOpen: () => void; onCopy: () => void; onToggleSave: () => void;
 }) {
   return (
@@ -112,7 +112,7 @@ function PromptCard({ p, copies, saved, copied, onOpen, onCopy, onToggleSave }: 
         <Thumb item={p} />
         <div className="absolute top-3 left-3 flex gap-2">
           <TypeBadge item={p} />
-          {p.mine && (
+          {p.mine && isAdmin && (
             <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-[10px] font-black uppercase tracking-widest text-amber-300 border border-amber-400/40">Mine</span>
           )}
         </div>
@@ -153,6 +153,11 @@ export default function App() {
     return m;
   });
   const [route, setRoute] = useState<Route>({ view: 'home' });
+  const [editingItem, setEditingItem] = useState<PromptItem | null>(null);
+  const handleEdit = (item: PromptItem) => {
+    setEditingItem(item);
+    setRoute({ view: 'upload' });
+  };
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('All');
   const [model, setModel] = useState<string>('All');
@@ -289,6 +294,7 @@ export default function App() {
     copies: copiesMap[p.id] || 0,
     saved: savedIds.includes(p.id),
     copied: copiedId === p.id,
+    isAdmin: isAdmin(),
     onOpen: () => go('detail', p.id),
     onCopy: () => copyPrompt(p),
     onToggleSave: () => toggleSave(p.id),
@@ -365,14 +371,15 @@ export default function App() {
         <BrowseView items={filtered} query={query} setQuery={setQuery}
           category={category} setCategory={setCategory} model={model} setModel={setModel}
           ptype={ptype} setPtype={setPtype} sort={sort} setSort={setSort}
-          mineOnly={mineOnly} setMineOnly={setMineOnly} cardProps={cardProps} />
+          mineOnly={mineOnly} setMineOnly={setMineOnly} isAdmin={isAdmin()} cardProps={cardProps} />
       )}
       {route.view === 'detail' && detailItem && (
         <DetailView item={detailItem} items={items} copies={copiesMap[detailItem.id] || 0}
           saved={savedIds.includes(detailItem.id)} copied={copiedId === detailItem.id}
-          shareCopied={copiedId === 'share-' + detailItem.id}
+          shareCopied={copiedId === 'share-' + detailItem.id} isAdmin={isAdmin()}
           onCopy={() => copyPrompt(detailItem)} onToggleSave={() => toggleSave(detailItem.id)}
           onShare={() => shareLink(detailItem)} onDelete={() => handleDelete(detailItem.id)}
+          onEdit={() => handleEdit(detailItem)}
           onOpen={(id) => go('detail', id)} onBack={() => go('browse')}
           onCategory={(c) => { setCategory(c); go('browse'); }} cardProps={cardProps} />
       )}
@@ -393,7 +400,8 @@ export default function App() {
         <SavedView items={savedItems} cardProps={cardProps} onBrowse={() => go('browse')} />
       )}
       {route.view === 'upload' && (
-        <UploadView onBack={() => go('browse')}
+        <UploadView onBack={() => { setEditingItem(null); go('browse'); }}
+          editing={editingItem}
           onSaved={(newItem) => {
             if (newItem) {
               setItems((prev) => [newItem, ...prev]);
@@ -401,6 +409,11 @@ export default function App() {
             }
             setMineOnly(true);
             go('browse');
+          }}
+          onUpdated={(updated) => {
+            setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+            setEditingItem(null);
+            go('detail', updated.id);
           }}
           onLogout={logoutAdmin} />
       )}
@@ -590,11 +603,11 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
 
 /* ── Browse ── */
 
-function BrowseView({ items, query, setQuery, category, setCategory, model, setModel, ptype, setPtype, sort, setSort, mineOnly, setMineOnly, cardProps }: {
+function BrowseView({ items, query, setQuery, category, setCategory, model, setModel, ptype, setPtype, sort, setSort, mineOnly, setMineOnly, isAdmin, cardProps }: {
   items: PromptItem[]; query: string; setQuery: (v: string) => void;
   category: string; setCategory: (v: string) => void; model: string; setModel: (v: string) => void;
   ptype: TypeFilter; setPtype: (v: TypeFilter) => void; sort: SortKey; setSort: (v: SortKey) => void;
-  mineOnly: boolean; setMineOnly: (v: boolean) => void;
+  mineOnly: boolean; setMineOnly: (v: boolean) => void; isAdmin: boolean;
   cardProps: (p: PromptItem) => any;
 }) {
   return (
@@ -624,10 +637,12 @@ function BrowseView({ items, query, setQuery, category, setCategory, model, setM
           </button>
         ))}
         <div className="flex-1" />
-        <button onClick={() => setMineOnly(!mineOnly)}
-          className={`px-4 py-2.5 rounded-full text-xs font-bold border transition-colors ${mineOnly ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>
-          My Prompts
-        </button>
+        {isAdmin && (
+          <button onClick={() => setMineOnly(!mineOnly)}
+            className={`px-4 py-2.5 rounded-full text-xs font-bold border transition-colors ${mineOnly ? 'border-amber-400/60 bg-amber-400/10 text-amber-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>
+            My Prompts
+          </button>
+        )}
       </section>
 
       {/* Filters */}
@@ -724,10 +739,11 @@ function PhasesSection({ phases }: { phases: { title: string; text: string }[] }
   );
 }
 
-function DetailView({ item, items, copies, saved, copied, shareCopied, onCopy, onToggleSave, onShare, onDelete, onOpen, onBack, onCategory, cardProps }: {
+function DetailView({ item, items, copies, saved, copied, shareCopied, isAdmin, onCopy, onToggleSave, onShare, onDelete, onEdit, onOpen, onBack, onCategory, cardProps }: {
   item: PromptItem; items: PromptItem[]; copies: number;
   saved: boolean; copied: boolean; shareCopied: boolean;
-  onCopy: () => void; onToggleSave: () => void; onShare: () => void; onDelete: () => void;
+  isAdmin: boolean;
+  onCopy: () => void; onToggleSave: () => void; onShare: () => void; onDelete: () => void; onEdit: () => void;
   onOpen: (id: string) => void; onBack: () => void; onCategory: (c: string) => void;
   cardProps: (p: PromptItem) => any;
 }) {
@@ -850,10 +866,15 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, onCopy, o
             </section>
           )}
 
-          {item.mine && (
-            <button onClick={onDelete} className="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 font-bold">
-              <Trash2 size={14} /> Delete this prompt
-            </button>
+          {isAdmin && (
+            <div className="flex items-center gap-5">
+              <button onClick={onEdit} className="flex items-center gap-2 text-xs text-amber-300 hover:text-amber-200 font-bold">
+                <Pencil size={14} /> Edit this prompt
+              </button>
+              <button onClick={onDelete} className="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 font-bold">
+                <Trash2 size={14} /> Delete this prompt
+              </button>
+            </div>
           )}
         </div>
 
@@ -1064,19 +1085,21 @@ function AdminLoginModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
 /* ── Upload ── */
 
-function UploadView({ onBack, onSaved, onLogout }: {
+function UploadView({ onBack, onSaved, onLogout, editing, onUpdated }: {
   onBack: () => void; onSaved: (newItem?: PromptItem) => void; onLogout: () => void;
+  editing?: PromptItem | null; onUpdated?: (item: PromptItem) => void;
 }) {
-  const [ptype, setPtype] = useState<'video' | 'image'>('video');
-  const [title, setTitle] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
-  const [model, setModel] = useState<string>(MODELS[0]);
-  const [duration, setDuration] = useState('10s');
-  const [aspectRatio, setAspectRatio] = useState('16:9');
-  const [tags, setTags] = useState('');
-  const [phases, setPhases] = useState<{ title: string; text: string }[]>([]);
-  const [image, setImage] = useState<string | undefined>(undefined);
+  const [ptype, setPtype] = useState<'video' | 'image'>(editing?.type === 'image' ? 'image' : 'video');
+  const [title, setTitle] = useState(editing?.title || '');
+  const [prompt, setPrompt] = useState(editing?.prompt || '');
+  const [category, setCategory] = useState<string>(editing?.category || CATEGORIES[0]);
+  const [model, setModel] = useState<string>(editing?.model || MODELS[0]);
+  const [duration, setDuration] = useState(editing?.duration || '10s');
+  const [aspectRatio, setAspectRatio] = useState(editing?.aspectRatio || '16:9');
+  const [tags, setTags] = useState(editing?.tags?.join(', ') || '');
+  const [phases, setPhases] = useState<{ title: string; text: string }[]>(
+    editing?.phases?.map((p) => ({ title: p.title || '', text: p.text || '' })) || []);
+  const [image, setImage] = useState<string | undefined>(editing?.image);
   const [imageFile, setImageFile] = useState<File | undefined>(undefined);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1086,7 +1109,9 @@ function UploadView({ onBack, onSaved, onLogout }: {
     ? ['5s', '8s', '10s', '12s', '15s', '30s']
     : ['1024×1024', '1344×768', '768×1344', '1920×1080'];
 
+  const firstPtype = useRef(true);
   useEffect(() => {
+    if (firstPtype.current) { firstPtype.current = false; return; }
     setModel(ptype === 'video' ? MODELS[0] : IMAGE_MODELS[0]);
     setDuration(ptype === 'video' ? '10s' : '1024×1024');
   }, [ptype]);
@@ -1117,19 +1142,33 @@ function UploadView({ onBack, onSaved, onLogout }: {
     setError('');
     try {
       const tagsArr = tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+      const payload = {
+        title: title.trim(),
+        prompt: prompt.trim(),
+        category,
+        model,
+        duration,
+        aspectRatio,
+        tags: tagsArr,
+        type: ptype,
+        phases: phases.filter((ph) => ph.title.trim() || ph.text.trim()),
+      };
+      if (editing) {
+        const imageChanged = image !== editing.image;
+        const data = await apiPost('/api/update', {
+          token,
+          id: editing.id,
+          prompt: payload,
+          imageBase64: imageChanged ? image || undefined : undefined,
+          imageType: imageFile?.type || undefined,
+          removeImage: !image && !!editing.image,
+        });
+        if (onUpdated) onUpdated(data.item);
+        return;
+      }
       const data = await apiPost('/api/upload', {
         token,
-        prompt: {
-          title: title.trim(),
-          prompt: prompt.trim(),
-          category,
-          model,
-          duration,
-          aspectRatio,
-          tags: tagsArr,
-          type: ptype,
-          phases: phases.filter((ph) => ph.title.trim() || ph.text.trim()),
-        },
+        prompt: payload,
         imageBase64: image || undefined,
         imageType: imageFile?.type || undefined,
       });
@@ -1151,8 +1190,8 @@ function UploadView({ onBack, onSaved, onLogout }: {
         </button>
       </div>
       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2">Contribute</p>
-      <h2 className="font-display text-3xl md:text-4xl font-black text-white tracking-tight mb-2">Upload a prompt</h2>
-      <p className="text-sm text-zinc-500 mb-8">Share your own {ptype} prompts with the vault. Published straight to the live database.</p>
+      <h2 className="font-display text-3xl md:text-4xl font-black text-white tracking-tight mb-2">{editing ? 'Edit prompt' : 'Upload a prompt'}</h2>
+      <p className="text-sm text-zinc-500 mb-8">{editing ? 'Update your prompt — changes go live instantly.' : `Share your own ${ptype} prompts with the vault. Published straight to the live database.`}</p>
 
       <div className="space-y-5 bg-white/[0.03] border border-amber-400/15 rounded-3xl p-6 md:p-8">
         <div className="flex gap-2">
@@ -1259,7 +1298,7 @@ function UploadView({ onBack, onSaved, onLogout }: {
 
         <button onClick={save} disabled={saving}
           className={`w-full py-4 rounded-2xl text-sm uppercase tracking-widest disabled:opacity-50 ${goldBtn}`}>
-          {saving ? 'Saving…' : 'Save to my vault →'}
+          {saving ? 'Saving…' : editing ? 'Save changes →' : 'Save to my vault →'}
         </button>
       </div>
     </main>
