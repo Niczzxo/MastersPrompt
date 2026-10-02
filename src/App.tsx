@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Search, Plus, Copy, Check, Clock, Layers, Trash2, Upload,
   Image as ImageIcon, Sparkles, ChevronDown, Pencil,
@@ -100,12 +100,53 @@ function TypeBadge({ item }: { item: PromptItem }) {
   );
 }
 
+/* ---------- Smooth motion + glow helpers ---------- */
+function useRevealRef<T extends HTMLElement>(delay = 0) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty('--reveal-delay', `${delay}ms`);
+    el.classList.add('reveal');
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-visible');
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -2% 0px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [delay]);
+  return ref;
+}
+
+function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
+  const ref = useRevealRef<HTMLDivElement>(delay);
+  return <div ref={ref} className={className}>{children}</div>;
+}
+
+function AmbientBackground() {
+  return (
+    <div aria-hidden className="pointer-events-none select-none">
+      <div className="ambient-orb" style={{ width: '34rem', height: '34rem', top: '-10rem', left: '-8rem', background: 'radial-gradient(circle, rgba(212,175,55,0.13), transparent 70%)' }} />
+      <div className="ambient-orb" style={{ width: '40rem', height: '40rem', top: '34%', right: '-14rem', background: 'radial-gradient(circle, rgba(140,95,25,0.11), transparent 70%)', animationDelay: '-6s' }} />
+      <div className="ambient-orb" style={{ width: '30rem', height: '30rem', bottom: '-10rem', left: '32%', background: 'radial-gradient(circle, rgba(212,175,55,0.08), transparent 70%)', animationDelay: '-12s' }} />
+    </div>
+  );
+}
+
 function PromptCard({ p, copies, saved, copied, isAdmin, onOpen, onCopy, onToggleSave }: {
   p: PromptItem; copies: number; saved: boolean; copied: boolean; isAdmin: boolean;
   onOpen: () => void; onCopy: () => void; onToggleSave: () => void;
 }) {
+  const revealRef = useRevealRef<HTMLElement>();
   return (
-    <article
+    <article ref={revealRef}
       className="break-inside-avoid mb-5 bg-white/[0.03] border border-white/10 rounded-3xl overflow-hidden hover:border-amber-400/40 hover:-translate-y-1 hover:shadow-[0_12px_45px_rgba(212,175,55,0.14)] transition-all cursor-pointer group"
       onClick={onOpen}>
       <div className="relative">
@@ -361,6 +402,8 @@ export default function App() {
         </div>
       )}
 
+      <AmbientBackground />
+      <div key={route.view + (route.view === 'detail' ? `-${(route as any).id || ''}` : '')} className="page-enter relative z-10">
       {route.view === 'home' && (
         <HomeView items={items} copiesMap={copiesMap} cardProps={cardProps}
           onSearch={(q) => { setQuery(q); go('browse'); }}
@@ -417,6 +460,7 @@ export default function App() {
           }}
           onLogout={logoutAdmin} />
       )}
+      </div>
 
       {showLogin && (
         <AdminLoginModal
@@ -496,7 +540,7 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full gold-card text-amber-200 text-[11px] font-bold uppercase tracking-widest mb-6">
             <Sparkles size={12} /> The premium AI prompts library
           </div>
-          <h2 className="font-display text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.05]">
+          <h2 className="font-display text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.05] glow-text">
             Craft cinema from a<br /><span className="gold-text italic">single sentence.</span>
           </h2>
           <p className="text-zinc-400 text-sm md:text-lg mt-6 max-w-2xl mx-auto leading-relaxed">
@@ -529,12 +573,14 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
       {/* Featured */}
       {featured.length > 0 && (
         <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+          <Reveal>
           <div className="flex items-center justify-between mb-6">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Hand-picked</p>
               <h3 className="font-display text-2xl md:text-3xl font-black text-white">Staff picks</h3>
             </div>
           </div>
+          </Reveal>
           <div className="flex gap-5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0">
             {featured.map((p) => (
               <div key={p.id} className="w-72 md:w-80 shrink-0">
@@ -547,8 +593,10 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
 
       {/* Categories */}
       <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+        <Reveal>
         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-1">Find your style</p>
         <h3 className="font-display text-2xl md:text-3xl font-black text-white mb-6">Browse by category</h3>
+        </Reveal>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {CATEGORIES.map((c) => {
             const style = CATEGORY_STYLES[c];
@@ -568,34 +616,38 @@ function HomeView({ items, copiesMap, cardProps, onSearch, onCategory, onUpload 
 
       {/* How it works */}
       <section className="max-w-[1400px] mx-auto px-4 md:px-8 py-14">
+        <Reveal>
         <div className="gold-card rounded-[2rem] p-8 md:p-14 relative overflow-hidden">
-          <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-20 blur-[80px]"
+          <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-20 blur-[80px] animate-float-slow"
             style={{ background: '#d4af37' }} />
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400/70 mb-2 text-center">Effortless</p>
-          <h3 className="font-display text-3xl md:text-4xl font-black text-white text-center mb-10">From idea to generation in <span className="gold-text italic">seconds</span></h3>
+          <h3 className="font-display text-3xl md:text-4xl font-black text-white text-center mb-10 glow-text">From idea to generation in <span className="gold-text italic">seconds</span></h3>
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { icon: <Search size={22} />, t: 'Discover', d: 'Browse curated prompts by category, model or mood — every one tested for quality.' },
               { icon: <Copy size={22} />, t: 'Copy in one tap', d: 'A single tap copies the full prompt, tuned with camera language and style keywords.' },
               { icon: <Zap size={22} />, t: 'Generate anywhere', d: 'Paste into Seedance, Veo, Sora or Midjourney and watch your vision come alive.' },
             ].map((s, i) => (
-              <div key={s.t} className="bg-black/30 border border-amber-400/15 rounded-3xl p-7">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black mb-5">
+              <Reveal key={s.t} delay={i * 120}>
+              <div className="bg-black/30 border border-amber-400/15 rounded-3xl p-7 card-lift h-full">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-200 to-amber-600 flex items-center justify-center text-black mb-5 shadow-[0_0_25px_rgba(212,175,55,0.35)]">
                   {s.icon}
                 </div>
                 <p className="text-[11px] font-black text-amber-400/70 uppercase tracking-widest mb-1">Step {i + 1}</p>
                 <h4 className="font-display text-xl font-black text-white mb-2">{s.t}</h4>
                 <p className="text-sm text-zinc-400 leading-relaxed">{s.d}</p>
               </div>
+              </Reveal>
             ))}
           </div>
           <div className="text-center mt-10">
             <button onClick={onUpload}
-              className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest ${goldBtn}`}>
+              className={`btn-press inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest shadow-[0_0_35px_rgba(212,175,55,0.3)] ${goldBtn}`}>
               <Plus size={16} /> Share your own prompt
             </button>
           </div>
         </div>
+        </Reveal>
       </section>
     </main>
   );
@@ -679,7 +731,7 @@ function BrowseView({ items, query, setQuery, category, setCategory, model, setM
           <p className="text-sm">No prompts found. Try another search — or upload your own!</p>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:balance]">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5 [column-fill:balance]">
           {items.map((p) => (
             <PromptCard key={p.id} p={p} {...cardProps(p)} />
           ))}
@@ -728,18 +780,20 @@ function PhasesSection({ phases }: { phases: { title: string; text: string }[] }
                 <span className="flex-1 font-bold text-white text-sm truncate">{ph.title || `Phase ${i + 1}`}</span>
                 <ChevronDown size={16} className={`text-amber-400 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
               </button>
-              {isOpen && (
-                <div className="px-5 pb-5 pt-1 border-t border-white/5">
-                  <p className="mt-3 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                    Phase {String(i + 1).padStart(2, '0')} of {String(phases.length).padStart(2, '0')} — Prompt instruction
-                  </p>
-                  <button onClick={() => copyPhase(ph.text, i)}
-                    className={`w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${copiedIdx === i ? 'bg-emerald-500 text-black' : 'bg-gradient-to-r from-amber-200 to-amber-500 text-black hover:brightness-110 shadow-[0_0_25px_rgba(212,175,55,0.25)]'}`}>
-                    {copiedIdx === i ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Phase {i + 1}</>}
-                  </button>
-                  <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap mt-4">{ph.text}</p>
+              <div className={`acc-panel ${isOpen ? 'open' : ''}`}>
+                <div>
+                  <div className="px-5 pb-5 pt-1 border-t border-white/5">
+                    <p className="mt-3 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                      Phase {String(i + 1).padStart(2, '0')} of {String(phases.length).padStart(2, '0')} — Prompt instruction
+                    </p>
+                    <button onClick={() => copyPhase(ph.text, i)}
+                      className={`btn-press w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-sm font-black uppercase tracking-widest ${copiedIdx === i ? 'bg-emerald-500 text-black' : 'bg-gradient-to-r from-amber-200 to-amber-500 text-black hover:brightness-110 shadow-[0_0_25px_rgba(212,175,55,0.25)]'}`}>
+                      {copiedIdx === i ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Phase {i + 1}</>}
+                    </button>
+                    <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap mt-4">{ph.text}</p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -786,18 +840,18 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, isAdmin, 
               <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[11px] flex items-center gap-1"><Copy size={11} /> {copies} copies</span>
               <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[11px] flex items-center gap-1"><Eye size={11} /> {fmtDate(item.createdAt)}</span>
             </div>
-            <h1 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">{item.title}</h1>
+            <h1 className="font-display text-3xl md:text-5xl font-black text-white tracking-tight leading-tight glow-text">{item.title}</h1>
             <div className="flex flex-wrap gap-3 mt-6">
               <button onClick={onCopy}
-                className={`flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest ${copied ? 'bg-emerald-500 text-black' : goldBtn}`}>
+                className={`btn-press flex items-center gap-2 px-8 py-4 rounded-full text-sm uppercase tracking-widest ${copied ? 'bg-emerald-500 text-black' : `${goldBtn} shadow-[0_0_35px_rgba(212,175,55,0.35)] hover:shadow-[0_0_50px_rgba(212,175,55,0.5)]`}`}>
                 {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy prompt</>}
               </button>
               <button onClick={onToggleSave}
-                className={`flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border transition-all ${saved ? 'bg-amber-400/15 border-amber-400/50 text-amber-200' : 'border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200'}`}>
+                className={`btn-press flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border ${saved ? 'bg-amber-400/15 border-amber-400/50 text-amber-200 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200'}`}>
                 <Heart size={16} fill={saved ? 'currentColor' : 'none'} /> {saved ? 'Saved' : 'Save'}
               </button>
               <button onClick={onShare}
-                className="flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200 transition-all">
+                className="btn-press flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold border border-white/15 text-zinc-300 hover:border-amber-400/40 hover:text-amber-200">
                 {shareCopied ? <Check size={16} className="text-emerald-400" /> : <Share2 size={16} />} {shareCopied ? 'Link copied' : 'Share'}
               </button>
             </div>
@@ -936,7 +990,7 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, isAdmin, 
               More {item.category} →
             </button>
           </div>
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
             {related.map((p) => (
               <PromptCard key={p.id} p={p} {...cardProps(p)} />
             ))}
@@ -1003,7 +1057,7 @@ function CollectionDetailView({ collection, items, cardProps, onBack }: {
       {items.length === 0 ? (
         <p className="text-center text-zinc-600 py-16 text-sm">No prompts in this collection yet.</p>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
           {items.map((p) => (
             <PromptCard key={p.id} p={p} {...cardProps(p)} />
           ))}
@@ -1035,7 +1089,7 @@ function SavedView({ items, cardProps, onBrowse }: {
           </button>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
           {items.map((p) => (
             <PromptCard key={p.id} p={p} {...cardProps(p)} />
           ))}
