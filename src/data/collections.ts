@@ -54,7 +54,7 @@ export const COLLECTIONS: Collection[] = [
   {
     id: 'staff-picks',
     title: "Staff Picks",
-    description: 'The finest prompts in the vault, hand-selected by the MasterPrompts studio team.',
+    description: 'The finest prompts in the vault, hand-selected by the MastersPrompt studio team.',
     gradient: 'from-yellow-500 via-amber-600 to-yellow-800',
     icon: '💎',
     match: (p) => FEATURED_IDS.includes(p.id),

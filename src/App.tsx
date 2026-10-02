@@ -358,7 +358,7 @@ export default function App() {
               <Crown className="text-black" size={20} />
             </div>
             <div className="text-left hidden sm:block">
-              <h1 className="font-display font-black text-lg tracking-tight text-white leading-none">MasterPrompts</h1>
+              <h1 className="font-display font-black text-lg tracking-tight text-white leading-none">MastersPrompt</h1>
               <p className="text-[9px] text-amber-400/70 uppercase tracking-[0.25em] mt-0.5">Premium library</p>
             </div>
           </button>
@@ -477,11 +477,11 @@ export default function App() {
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 flex items-center justify-center">
                 <Crown className="text-black" size={17} />
               </div>
-              <p className="font-display font-black text-white text-lg">MasterPrompts</p>
+              <p className="font-display font-black text-white text-lg">MastersPrompt</p>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed max-w-sm">
               The premium library of AI video & image prompts. Every prompt is original,
-              curated by the MasterPrompts studio and ready to copy in one tap.
+              curated by the MastersPrompt studio and ready to copy in one tap.
             </p>
           </div>
           <div>
@@ -504,7 +504,7 @@ export default function App() {
           </div>
         </div>
         <div className="border-t border-white/5 py-6 text-center">
-          <p className="text-[11px] text-zinc-600">MasterPrompts © 2026 · {items.length} prompts · {totalCopies.toLocaleString()} copies served</p>
+          <p className="text-[11px] text-zinc-600">MastersPrompt © 2026 · {items.length} prompts · {totalCopies.toLocaleString()} copies served</p>
         </div>
       </footer>
     </div>
@@ -951,7 +951,7 @@ function DetailView({ item, items, copies, saved, copied, shareCopied, isAdmin, 
                 <Crown className="text-black" size={24} />
               </div>
               <div>
-                <p className="font-black text-white">MasterPrompts Studio</p>
+                <p className="font-black text-white">MastersPrompt Studio</p>
                 <p className="text-[11px] text-zinc-500">Curated prompt studio</p>
               </div>
             </div>
@@ -1011,7 +1011,7 @@ function CollectionsView({ items, onOpen }: { items: PromptItem[]; onOpen: (id: 
         Prompt <span className="gold-text italic">collections</span>
       </h2>
       <p className="text-zinc-500 text-sm md:text-base max-w-2xl mb-10">
-        Themed bundles assembled by the MasterPrompts studio — grab a whole pack of ideas in one go.
+        Themed bundles assembled by the MastersPrompt studio — grab a whole pack of ideas in one go.
       </p>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {COLLECTIONS.map((c) => {
